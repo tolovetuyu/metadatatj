@@ -26,11 +26,9 @@ env/
 .gitignore
 
 # Docker（保留构建所需文件）
-# 只排除不需要的 Docker 配置文件，保留 entrypoint.sh
-docker/Dockerfile
-docker/docker-compose.yml
-docker/.gitkeep
-# docker/entrypoint.sh - 需要保留，不排除
+# 排除 docker 目录下的所有文件，然后保留需要的文件
+docker/*
+!docker/entrypoint.sh
 
 # 日志
 logs/
