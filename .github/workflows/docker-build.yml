@@ -6,9 +6,9 @@ on:
   workflow_dispatch:  # 允许手动触发
 
 env:
-  REGISTRY: "registry.cn-hangzhou.aliyuncs.com"
-  NAMESPACE: "tolovetuyu"     # 换成你在阿里云创建的命名空间
-  IMAGE_NAME: "metadatatj"
+  REGISTRY: "crpi-zzqrsg0sczeik6kc.cn-hangzhou.personal.cr.aliyuncs.com"
+  NAMESPACE: "metadatatj"        # 阿里云命名空间
+  IMAGE_NAME: "metadatatj01"     # 阿里云仓库名
 
 jobs:
   build-and-push:
