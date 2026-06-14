@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.py[cod]
+*.log
+.venv/
+venv/
+data/chroma/
+data/uploads/
+logs/
+*.egg-info/
+.pytest_cache/

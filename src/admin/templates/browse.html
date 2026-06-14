@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} - MetadataTJ{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>{{ title }}</h1>
+  <p class="lead">共 {{ total }} 条，第 {{ page }} / {{ total_pages }} 页</p>
+</header>
+
+<div class="table-wrap panel">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        {% if kind == 'elements' %}
+        <th>中文名称</th>
+        <th>英文标识</th>
+        <th>类型</th>
+        <th>长度</th>
+        {% else %}
+        <th>中文名称</th>
+        {% endif %}
+        <th>检索文本</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in records %}
+      <tr>
+        <td class="mono">{{ r.id }}</td>
+        {% if kind == 'elements' %}
+        <td>{{ r.cn_name }}</td>
+        <td>{{ r.en_name }}</td>
+        <td>{{ r.type }}</td>
+        <td>{{ r.length }}</td>
+        {% else %}
+        <td>{{ r.cn_name }}</td>
+        {% endif %}
+        <td class="muted small">{{ r.document }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">暂无数据，请先导入 Excel</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="pagination">
+  {% if page > 1 %}
+  <a class="btn btn-secondary" href="{{ url_for('admin.browse', kind=kind, page=page-1) }}">上一页</a>
+  {% endif %}
+  {% if page < total_pages %}
+  <a class="btn btn-secondary" href="{{ url_for('admin.browse', kind=kind, page=page+1) }}">下一页</a>
+  {% endif %}
+</div>
+{% endblock %}

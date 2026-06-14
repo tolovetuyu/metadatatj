@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}导入结果 - MetadataTJ{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>导入完成</h1>
+</header>
+
+<div class="panel result-summary">
+  <div class="result-grid">
+    <div><span class="muted">类型</span><strong>{{ '数据元' if result.kind.value == 'elements' else '限定词' }}</strong></div>
+    <div><span class="muted">模式</span><strong>{{ result.mode.value }}</strong></div>
+    <div><span class="muted">Excel 行数</span><strong>{{ result.total_rows }}</strong></div>
+    <div><span class="muted">写入条数</span><strong class="ok">{{ result.imported }}</strong></div>
+    <div><span class="muted">跳过</span><strong>{{ result.skipped }}</strong></div>
+    <div><span class="muted">已向量化</span><strong class="ok">{{ result.embedded }}</strong></div>
+  </div>
+</div>
+
+{% if result.preview %}
+<section class="panel">
+  <h2>预览（前 10 条）</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          {% for key in result.preview[0].keys() %}
+          <th>{{ key }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in result.preview %}
+        <tr>
+          {% for val in row.values() %}
+          <td>{{ val }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<div class="actions">
+  <a class="btn btn-primary" href="{{ url_for('admin.import_page') }}">继续导入</a>
+  <a class="btn btn-secondary" href="{{ url_for('admin.index') }}">返回概览</a>
+</div>
+{% endblock %}

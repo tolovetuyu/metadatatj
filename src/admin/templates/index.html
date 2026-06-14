@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}概览 - MetadataTJ{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>向量库概览</h1>
+  <p class="lead">数据元与限定词通过 Excel 导入，导入时自动调用 Embedding 模型向量化后写入 ChromaDB。</p>
+</header>
+
+<div class="stat-grid">
+  <div class="stat-card accent">
+    <div class="stat-label">数据元</div>
+    <div class="stat-value">{{ stats.data_elements | default(0) }}</div>
+    <a href="{{ url_for('admin.browse', kind='elements') }}">查看列表 →</a>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">限定词</div>
+    <div class="stat-value">{{ stats.qualifiers | default(0) }}</div>
+    <a href="{{ url_for('admin.browse', kind='qualifiers') }}">查看列表 →</a>
+  </div>
+  <div class="stat-card muted-card">
+    <div class="stat-label">标准表</div>
+    <div class="stat-value">{{ stats.standard_tables | default(0) }}</div>
+  </div>
+  <div class="stat-card muted-card">
+    <div class="stat-label">表字段</div>
+    <div class="stat-value">{{ stats.table_fields | default(0) }}</div>
+  </div>
+</div>
+
+<section class="panel">
+  <h2>为什么导入时必须向量化？</h2>
+  <ul class="explain-list">
+    <li><strong>检索原理</strong>：推荐服务用「查询文本的向量」与「库内向量」做余弦相似度，没有向量就无法召回。</li>
+    <li><strong>模型一致</strong>：入库与查询须使用同一 Embedding 模型（当前：<code>{{ embedding_model }}</code>），否则相似度无意义。</li>
+    <li><strong>导入流程</strong>：Excel 解析 → 生成检索文本 → 批量调用 Embedding API → 向量 + 元数据写入 Chroma。</li>
+    <li><strong>更新策略</strong>：修改 Excel 后重新导入即可；相同 ID 会覆盖旧向量（upsert 模式）。</li>
+  </ul>
+  <div class="actions">
+    <a class="btn btn-primary" href="{{ url_for('admin.import_page') }}">去导入 Excel</a>
+    <a class="btn btn-secondary" href="{{ url_for('admin.download_template', kind='elements') }}">下载数据元模板</a>
+    <a class="btn btn-secondary" href="{{ url_for('admin.download_template', kind='qualifiers') }}">下载限定词模板</a>
+  </div>
+</section>
+
+<section class="panel panel-compact">
+  <h2>存储路径</h2>
+  <code class="path">{{ chroma_dir }}</code>
+</section>
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Excel 导入 - MetadataTJ{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>Excel 导入</h1>
+  <p class="lead">上传数据元或限定词 Excel，系统将<strong>自动调用 Embedding 模型</strong>完成向量化并写入向量库。</p>
+</header>
+
+<div class="import-layout">
+  <form class="panel import-form" method="post" action="{{ url_for('admin.import_submit') }}" enctype="multipart/form-data">
+    <div class="field">
+      <label for="kind">导入类型</label>
+      <select id="kind" name="kind" required>
+        <option value="elements">数据元</option>
+        <option value="qualifiers">限定词</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="mode">导入模式</label>
+      <select id="mode" name="mode" required>
+        <option value="upsert" selected>增量更新（upsert：同 ID 覆盖，新 ID 追加）</option>
+        <option value="append">仅追加（跳过已存在 ID）</option>
+        <option value="replace">全量替换（清空该集合并重新导入）</option>
+      </select>
+      <p class="hint">推荐使用「增量更新」；全量替换会删除该类型全部旧数据。</p>
+    </div>
+
+    <div class="field">
+      <label for="sheet">Sheet 名称（可选）</label>
+      <input id="sheet" name="sheet" type="text" placeholder="默认：数据元 / 限定词，或第一个 sheet">
+    </div>
+
+    <div class="field">
+      <label for="file">Excel 文件</label>
+      <input id="file" name="file" type="file" accept=".xlsx,.xls" required>
+    </div>
+
+    <div class="notice">
+      <strong>向量化说明</strong>
+      <p>导入过程中会按批次（每批 {{ batch_size }} 条）调用 <code>{{ embedding_model }}</code> 生成向量。条数较多时请耐心等待，请勿关闭页面。</p>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-lg">开始导入并向量化</button>
+  </form>
+
+  <aside class="panel format-guide">
+    <h2>Excel 列名要求</h2>
+    <div id="format-elements" class="format-block">
+      <h3>数据元</h3>
+      <table class="mini-table">
+        <tr><th>必填列</th><th>可识别别名</th></tr>
+        <tr><td>内部标识符</td><td>element_code、数据元内部标识符</td></tr>
+        <tr><td>中文名称</td><td>cn_name、数据元中文名</td></tr>
+        <tr><td>标识符</td><td>en_name、英文名称</td></tr>
+        <tr><td>类型</td><td>type、数据类型</td></tr>
+        <tr><td>长度</td><td>length、数据长度</td></tr>
+        <tr><td>要素分类编码</td><td>classify</td></tr>
+      </table>
+      <a href="{{ url_for('admin.download_template', kind='elements') }}">下载模板</a>
+    </div>
+    <div id="format-qualifiers" class="format-block" hidden>
+      <h3>限定词</h3>
+      <table class="mini-table">
+        <tr><th>必填列</th><th>可识别别名</th></tr>
+        <tr><td>标识符</td><td>identifier、限定词标识符</td></tr>
+        <tr><td>中文名称</td><td>cn_name、限定词</td></tr>
+      </table>
+      <a href="{{ url_for('admin.download_template', kind='qualifiers') }}">下载模板</a>
+    </div>
+  </aside>
+</div>
+
+<script>
+  const kind = document.getElementById('kind');
+  const fe = document.getElementById('format-elements');
+  const fq = document.getElementById('format-qualifiers');
+  function syncFormat() {
+    const isEl = kind.value === 'elements';
+    fe.hidden = !isEl;
+    fq.hidden = isEl;
+  }
+  kind.addEventListener('change', syncFormat);
+  syncFormat();
+</script>
+{% endblock %}

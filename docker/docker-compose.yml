@@ -1,0 +1,133 @@
+# MetadataTJ Docker Compose 配置
+# 支持多种部署模式
+
+version: "3.8"
+
+services:
+  # ==================== 推荐服务 ====================
+  recommend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: metadatatj:latest
+    container_name: metadatatj-recommend
+    restart: unless-stopped
+    command: recommend
+    ports:
+      - "${RECOMMEND_PORT:-6058}:6058"
+    volumes:
+      - ../data:/app/data
+      - ../logs:/app/logs
+      - ../knowledge:/app/knowledge
+    environment:
+      - DATA_SOURCE=${DATA_SOURCE:-db}
+      - DB_HOST=${DB_HOST:-host.docker.internal}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_USER=${DB_USER:-root}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-metadata}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      - HISTORY_RECOMMEND_ENABLED=${HISTORY_RECOMMEND_ENABLED:-false}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6058/autoexport/api/recommend", "-X", "POST", "-H", "Content-Type: application/json", "-d", "{\"fieldsInfo\":[]}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - metadatatj-net
+
+  # ==================== 表映射服务 ====================
+  tablemap:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: metadatatj:latest
+    container_name: metadatatj-tablemap
+    restart: unless-stopped
+    command: tablemap
+    ports:
+      - "${TABLEMAP_PORT:-6059}:6059"
+    volumes:
+      - ../data:/app/data
+      - ../logs:/app/logs
+      - ../knowledge:/app/knowledge
+    environment:
+      - DATA_SOURCE=${DATA_SOURCE:-file}
+    networks:
+      - metadatatj-net
+
+  # ==================== 管理后台 ====================
+  admin:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: metadatatj:latest
+    container_name: metadatatj-admin
+    restart: unless-stopped
+    command: admin
+    ports:
+      - "${ADMIN_PORT:-6060}:6060"
+    volumes:
+      - ../data:/app/data
+      - ../logs:/app/logs
+      - ../knowledge:/app/knowledge
+    environment:
+      - DATA_SOURCE=${DATA_SOURCE:-file}
+    networks:
+      - metadatatj-net
+
+  # ==================== 全服务模式（单容器） ====================
+  all-in-one:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: metadatatj:latest
+    container_name: metadatatj-all
+    restart: unless-stopped
+    command: all
+    ports:
+      - "${RECOMMEND_PORT:-6058}:6058"
+      - "${TABLEMAP_PORT:-6059}:6059"
+      - "${ADMIN_PORT:-6060}:6060"
+    volumes:
+      - ../data:/app/data
+      - ../logs:/app/logs
+      - ../knowledge:/app/knowledge
+    environment:
+      - DATA_SOURCE=${DATA_SOURCE:-file}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      - LLM_DECOMPOSE_ENABLED=${LLM_DECOMPOSE_ENABLED:-true}
+      - LLM_RERANK_ENABLED=${LLM_RERANK_ENABLED:-true}
+      - HISTORY_RECOMMEND_ENABLED=${HISTORY_RECOMMEND_ENABLED:-false}
+      # 数据库配置
+      - DB_HOST=${DB_HOST:-host.docker.internal}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_USER=${DB_USER:-root}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-metadata}
+      # 历史数据库配置
+      - HISTORY_DB_HOST=${HISTORY_DB_HOST:-host.docker.internal}
+      - HISTORY_DB_PORT=${HISTORY_DB_PORT:-3306}
+      - HISTORY_DB_USER=${HISTORY_DB_USER:-root}
+      - HISTORY_DB_PASSWORD=${HISTORY_DB_PASSWORD}
+      - HISTORY_DB_NAME=${HISTORY_DB_NAME:-metadata_history}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6058/autoexport/api/recommend", "-X", "POST", "-H", "Content-Type: application/json", "-d", "{\"fieldsInfo\":[]}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - metadatatj-net
+    profiles:
+      - all-in-one
+
+networks:
+  metadatatj-net:
+    driver: bridge
+
+volumes:
+  data:
+  logs:
+  knowledge:

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}MetadataTJ 管理{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('admin.static', filename='admin.css') }}">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">MT</span>
+        <div>
+          <div class="brand-title">MetadataTJ</div>
+          <div class="brand-sub">向量库管理</div>
+        </div>
+      </div>
+      <nav>
+        <a href="{{ url_for('admin.index') }}" class="nav-item {% if request.endpoint == 'admin.index' %}active{% endif %}">概览</a>
+        <a href="{{ url_for('admin.import_page') }}" class="nav-item {% if request.endpoint == 'admin.import_page' %}active{% endif %}">Excel 导入</a>
+        <a href="{{ url_for('admin.browse', kind='elements') }}" class="nav-item">浏览数据元</a>
+        <a href="{{ url_for('admin.browse', kind='qualifiers') }}" class="nav-item">浏览限定词</a>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="muted">Embedding</div>
+        <div class="mono">{{ embedding_model | default('—') }}</div>
+      </div>
+    </aside>
+    <main class="main">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>
