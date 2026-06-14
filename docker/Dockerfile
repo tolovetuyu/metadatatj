@@ -2,8 +2,7 @@
 # 多阶段构建，优化镜像大小
 
 # ==================== 构建阶段 ====================
-# 使用阿里云镜像加速构建
-FROM registry.cn-hangzhou.aliyuncs.com/acs/python:3.11-slim AS builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /build
 
@@ -26,8 +25,7 @@ RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && 
     pip install --no-cache-dir -r requirements.txt
 
 # ==================== 运行阶段 ====================
-# 使用阿里云镜像加速构建
-FROM registry.cn-hangzhou.aliyuncs.com/acs/python:3.11-slim AS runtime
+FROM python:3.11-slim AS runtime
 
 LABEL maintainer="metadataTJ"
 LABEL description="MetadataTJ 数据元推荐服务"
