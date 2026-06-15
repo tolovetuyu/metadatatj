@@ -1,0 +1,278 @@
+{
+  "info": {
+    "name": "MetadataTJ API",
+    "description": "MetadataTJ 数据元推荐服务接口测试集合",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:7058",
+      "description": "服务基础地址"
+    }
+  ],
+  "item": [
+    {
+      "name": "推荐服务",
+      "item": [
+        {
+          "name": "字段推荐接口",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lybEname\": \"\",\n  \"fieldsInfo\": [\n    {\n      \"cname\": \"姓名\",\n      \"ename\": \"name\",\n      \"type\": \"string\",\n      \"length\": 255\n    },\n    {\n      \"cname\": \"证件号码\",\n      \"ename\": \"idcard\",\n      \"type\": \"string\",\n      \"length\": 18\n    },\n    {\n      \"cname\": \"性别\",\n      \"ename\": \"gender\",\n      \"type\": \"string\",\n      \"length\": 10\n    },\n    {\n      \"cname\": \"出生日期\",\n      \"ename\": \"birthday\",\n      \"type\": \"date\",\n      \"length\": 10\n    },\n    {\n      \"cname\": \"联系电话\",\n      \"ename\": \"phone\",\n      \"type\": \"string\",\n      \"length\": 20\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/autoexport/api/recommendWithExtend",
+              "host": ["{{base_url}}"],
+              "path": ["autoexport", "api", "recommendWithExtend"]
+            },
+            "description": "字段推荐接口，返回每个字段对应的数据元推荐结果（Top5）"
+          },
+          "response": []
+        },
+        {
+          "name": "字段推荐-单个字段",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lybEname\": \"\",\n  \"fieldsInfo\": [\n    {\n      \"cname\": \"姓名\",\n      \"ename\": \"xm\",\n      \"type\": \"string\",\n      \"length\": 255\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/autoexport/api/recommendWithExtend",
+              "host": ["{{base_url}}"],
+              "path": ["autoexport", "api", "recommendWithExtend"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "字段推荐-带限定词",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lybEname\": \"\",\n  \"fieldsInfo\": [\n    {\n      \"cname\": \"户籍地\",\n      \"ename\": \"hjd\",\n      \"type\": \"string\",\n      \"length\": 255\n    },\n    {\n      \"cname\": \"现住地\",\n      \"ename\": \"xzd\",\n      \"type\": \"string\",\n      \"length\": 255\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/autoexport/api/recommendWithExtend",
+              "host": ["{{base_url}}"],
+              "path": ["autoexport", "api", "recommendWithExtend"]
+            },
+            "description": "测试带限定词的字段推荐（如户籍地、现住地等）"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "通用字段",
+      "item": [
+        {
+          "name": "RUN通用字段接口",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"primaryKeyFields\": [\n    \"id\",\n    \"name\"\n  ],\n  \"RUN_SJLYXTFLDM\": \"01001\",\n  \"RUN_CJD_XZQHDM\": \"610000\",\n  \"RUN_SJJLMGJB\": \"99\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/autoexport/api/commonFields",
+              "host": ["{{base_url}}"],
+              "path": ["autoexport", "api", "commonFields"]
+            },
+            "description": "RUN通用字段推荐接口，返回标准RUN字段列表"
+          },
+          "response": []
+        },
+        {
+          "name": "RUN通用字段-简化参数",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"primaryKeyFields\": [\n    \"id\"\n  ],\n  \"RUN_SJLYXTFLDM\": \"01001\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/autoexport/api/commonFields",
+              "host": ["{{base_url}}"],
+              "path": ["autoexport", "api", "commonFields"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "历史推荐管理",
+      "item": [
+        {
+          "name": "全量同步-从task_process",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"force_full\": true,\n  \"source\": \"task_process\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/autoexport/api/history/sync",
+              "host": ["{{base_url}}"],
+              "path": ["autoexport", "api", "history", "sync"]
+            },
+            "description": "从rucp_task_process表全量同步历史推荐数据"
+          },
+          "response": []
+        },
+        {
+          "name": "全量同步-从mapping_history",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"force_full\": true,\n  \"source\": \"mapping_history\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/autoexport/api/history/sync",
+              "host": ["{{base_url}}"],
+              "path": ["autoexport", "api", "history", "sync"]
+            },
+            "description": "从rucp_element_mapping_history表全量同步历史推荐数据"
+          },
+          "response": []
+        },
+        {
+          "name": "全量同步-所有数据源",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"force_full\": true,\n  \"source\": \"all\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/autoexport/api/history/sync",
+              "host": ["{{base_url}}"],
+              "path": ["autoexport", "api", "history", "sync"]
+            },
+            "description": "从所有数据源全量同步历史推荐数据"
+          },
+          "response": []
+        },
+        {
+          "name": "增量同步",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"force_full\": false,\n  \"source\": \"task_process\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/autoexport/api/history/sync",
+              "host": ["{{base_url}}"],
+              "path": ["autoexport", "api", "history", "sync"]
+            },
+            "description": "增量同步历史推荐数据（基于ID自增）"
+          },
+          "response": []
+        },
+        {
+          "name": "查看历史统计",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/autoexport/api/history/stats",
+              "host": ["{{base_url}}"],
+              "path": ["autoexport", "api", "history", "stats"]
+            },
+            "description": "查看历史推荐缓存统计信息"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "健康检查",
+      "item": [
+        {
+          "name": "服务健康检查",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fieldsInfo\": []\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/autoexport/api/recommend",
+              "host": ["{{base_url}}"],
+              "path": ["autoexport", "api", "recommend"]
+            },
+            "description": "健康检查接口，返回空结果表示服务正常"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
