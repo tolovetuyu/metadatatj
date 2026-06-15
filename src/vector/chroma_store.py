@@ -58,7 +58,13 @@ class ChromaVectorStore:
     ) -> None:
         col = self._collection(collection_name)
         if embeddings is None:
-            embeddings = self._embedder.embed(documents)
+            # 分批计算 embeddings，避免超过 API batch size 限制
+            embeddings = []
+            embed_batch_size = settings.embedding_batch_size
+            for i in range(0, len(documents), embed_batch_size):
+                batch_docs = documents[i : i + embed_batch_size]
+                batch_emb = self._embedder.embed(batch_docs)
+                embeddings.extend(batch_emb)
         batch = 500
         for i in range(0, len(ids), batch):
             col.upsert(
