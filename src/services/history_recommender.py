@@ -31,6 +31,8 @@ class HistoryRecommend:
     target_classify: str
     match_count: int  # 匹配次数
     determiner: str = ""
+    determiner1_code: str = ""
+    determiner2_code: str = ""
 
 
 class HistoryRecommender:
@@ -59,10 +61,12 @@ class HistoryRecommender:
         try:
             # 查询所有历史推荐统计，按匹配次数降序（使用历史数据库）
             rows = db.history_query_all(f"""
-                SELECT 
+                SELECT
                     source_cname, source_ename, target_element_code,
                     target_cn_name, target_en_name, target_type,
-                    target_length, target_classify, determiner, match_count
+                    target_length, target_classify, determiner,
+                    determiner1_code, determiner2_code,
+                    match_count
                 FROM {self._table_name}
                 WHERE status = 1
                 ORDER BY source_cname, match_count DESC
@@ -85,6 +89,8 @@ class HistoryRecommender:
                     target_classify=row.get("target_classify", ""),
                     match_count=int(row.get("match_count", 1) or 1),
                     determiner=row.get("determiner", ""),
+                    determiner1_code=row.get("determiner1_code", ""),
+                    determiner2_code=row.get("determiner2_code", ""),
                 ))
 
             # 原子更新缓存
@@ -147,6 +153,8 @@ class HistoryRecommender:
                 "is_history": True,
                 "match_count": h.match_count,
                 "determiner": h.determiner,
+                "determiner1_code": h.determiner1_code,
+                "determiner2_code": h.determiner2_code,
             })
 
         # 合并结果：历史结果在前，去重后的候选结果在后

@@ -95,18 +95,28 @@ class Scheduler:
 
 def sync_history_recommend(force_full: bool = False) -> dict:
     """同步历史推荐统计数据任务。
-    
+
+    优先从 rucp_task_process（position=fast_handle）同步，
+    同时从 rucp_element_mapping_history 同步历史对标记录。
+
     Args:
         force_full: 是否强制全量同步
     """
     sync_service = get_sync_service()
-    result = sync_service.sync_from_history(force_full=force_full)
 
-    # 同步完成后刷新缓存
-    if result.get("status") == "success":
+    # 从 task_process 表同步人工对标结果
+    result = sync_service.sync_from_task_process(force_full=force_full)
+
+    # 同时从历史对标记录表同步（如存在）
+    history_result = sync_service.sync_from_history(force_full=force_full)
+
+    # 合并结果
+    if result.get("status") == "success" or history_result.get("status") == "success":
         recommender = get_history_recommender()
         recommender.load_cache()
 
+    # 返回 task_process 的结果为主，附带 history 结果
+    result["history_sync"] = history_result
     return result
 
 

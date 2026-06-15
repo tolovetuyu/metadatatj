@@ -80,9 +80,10 @@ def history_stats():
 @app.route("/autoexport/api/history/sync", methods=["POST"])
 def history_sync():
     """手动触发历史推荐同步。
-    
+
     请求参数:
         force_full: 是否强制全量同步（默认false，增量同步）
+        source: 同步数据源，"task_process"（默认）或 "mapping_history" 或 "all"
     """
     from services.history_sync import get_sync_service
     try:
@@ -90,9 +91,20 @@ def history_sync():
     except Exception:
         data = {}
     force_full = data.get("force_full", False)
-    
+    source = data.get("source", "task_process")
+
     sync_service = get_sync_service()
-    result = sync_service.sync_from_history(force_full=force_full)
+    result = {}
+
+    if source in ("task_process", "all"):
+        result = sync_service.sync_from_task_process(force_full=force_full)
+    if source in ("mapping_history", "all"):
+        history_result = sync_service.sync_from_history(force_full=force_full)
+        if source == "all":
+            result["history_sync"] = history_result
+        else:
+            result = history_result
+
     # 同步完成后刷新缓存
     if result.get("status") == "success":
         history = get_history_recommender()

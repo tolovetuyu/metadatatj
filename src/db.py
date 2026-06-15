@@ -114,3 +114,12 @@ def history_execute(sql: str, params: tuple = ()) -> int:
     with get_history_cursor() as cursor:
         cursor.execute(sql, params)
         return cursor.rowcount
+
+
+# ========== 人工对标过程数据库操作（与历史库同库） ==========
+
+def task_process_query_all(sql: str, params: tuple = ()) -> list[dict[str, Any]]:
+    """查询所有记录（与历史库同库）。"""
+    with get_history_cursor() as cursor:
+        cursor.execute(sql, params)
+        return cursor.fetchall()

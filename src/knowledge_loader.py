@@ -19,18 +19,31 @@ def _load_from_db() -> KnowledgeBase:
         "SELECT code, chname, enname, type, length, valuetype, interalcode "
         "FROM rucp_element_biaozhun WHERE state = '1' AND up_to_date = 1"
     )
-    element_items = pd.DataFrame(rows)
-    element_items.columns = ["element_code", "cn_name", "en_name", "type", "length", "classify", "inner_code"]
+    if rows:
+        element_items = pd.DataFrame(rows)
+        element_items.columns = ["element_code", "cn_name", "en_name", "type", "length", "classify", "inner_code"]
+    else:
+        element_items = pd.DataFrame(columns=["element_code", "cn_name", "en_name", "type", "length", "classify", "inner_code"])
     element_items["length"] = element_items["length"].fillna(0).apply(
         lambda x: int(str(x).replace("c", "").replace("..", "").split(",")[0]) if str(x).strip() else 0
     )
 
     # 加载限定词
     rows = db.query_all(
-        "SELECT chname, code, interalcode FROM rucp_element_determiner WHERE status = 1"
+        "SELECT chname, code, interalcode FROM rucp_element_determiner WHERE status = 1 and up_to_date =1"
     )
-    determine_items = pd.DataFrame(rows)
-    determine_items.columns = ["cn_name", "identifier", "inner_identifier"]
+    if rows:
+        determine_items = pd.DataFrame(rows)
+        if len(determine_items.columns) == 3:
+            determine_items.columns = ["cn_name", "identifier", "inner_identifier"]
+        elif len(determine_items.columns) == 2:
+            determine_items.columns = ["cn_name", "identifier"]
+            determine_items["inner_identifier"] = ""
+        else:
+            logger.warning(f"限定词查询返回 {len(determine_items.columns)} 列，预期2-3列")
+            determine_items = pd.DataFrame(columns=["cn_name", "identifier", "inner_identifier"])
+    else:
+        determine_items = pd.DataFrame(columns=["cn_name", "identifier", "inner_identifier"])
 
     # 构建gz_map
     gz_map: dict[str, str] = {}
@@ -42,10 +55,14 @@ def _load_from_db() -> KnowledgeBase:
 
     # 加载表目录
     rows = db.query_all(
-        "SELECT code, chname, enname FROM rucp_standard_dataset WHERE status = 1"
+        "SELECT  t.CODE,t.chname,t.enname FROM rucp_standard_dataset t INNER JOIN 	rucp_standard_class t2 on t.standardclass = t2.id "
+           " INNER JOIN   rucp_setting_base t3 on t3.type = t2.code and t3.isuse =1 WHERE t.STATUS = 1 "
     )
-    table_catalog = pd.DataFrame(rows)
-    table_catalog.columns = ["0", "1", "2"]
+    if rows:
+        table_catalog = pd.DataFrame(rows)
+        table_catalog.columns = ["0", "1", "2"]
+    else:
+        table_catalog = pd.DataFrame(columns=["0", "1", "2"])
     # 添加空列以兼容原有格式
     table_catalog["3"] = table_catalog["1"]
     table_catalog["4"] = ""

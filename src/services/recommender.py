@@ -96,6 +96,7 @@ class MetadataRecommender:
         if element_query != decomp.core_element_hint:
             queries["element"].insert(0, element_query)
 
+        # 向量召回候选（ChromaDB 无数据时返回空列表，不阻断流程）
         raw_candidates = self.store.search_elements(queries["element"], settings.recall_top_k)
         candidates = []
         for c in raw_candidates:
@@ -113,10 +114,31 @@ class MetadataRecommender:
                 "score": c.get("score", 0),
             })
 
-        # 合并历史推荐结果（历史结果优先）
+        # 合并历史推荐结果（历史结果优先，纯历史模式下向量候选为空也可工作）
         candidates = self._history.merge_with_candidates(
             cname, ename, candidates, top_k=settings.recall_top_k
         )
+
+        # 提取历史候选中的限定词编码和元素详情，用于后续直接复用
+        history_det_map: dict[str, dict[str, str]] = {}
+        history_detail_map: dict[str, dict[str, Any]] = {}
+        for c in candidates:
+            if c.get("is_history"):
+                det1 = c.get("determiner1_code", "")
+                det2 = c.get("determiner2_code", "")
+                if det1 or det2:
+                    history_det_map[c["element_code"]] = {
+                        "determiner1_code": det1,
+                        "determiner2_code": det2,
+                    }
+                history_detail_map[c["element_code"]] = {
+                    "cn_name": c.get("cn_name", ""),
+                    "en_name": c.get("en_name", ""),
+                    "type": c.get("type", "string"),
+                    "length": c.get("length", 0),
+                    "classify": c.get("classify", ""),
+                    "element_code": c.get("element_code", ""),
+                }
 
         rankings = rerank_elements(
             cname, ename, decomp.core_element_hint, candidates, settings.rerank_top_k, self.llm
@@ -129,16 +151,24 @@ class MetadataRecommender:
         for rank in rankings:
             code = rank["element_code"]
             meta = self.store.get_element_by_code(code) or {}
-            row = self._resolve_element_row(meta.get("cn_name", ""), meta)
-            element_cnames.append(row[0])
-            element_enames.append(row[1])
-            element_types.append(row[2] or source_type)
-            element_lengths.append(row[3] or length)
-            element_classifys.append(row[4])
-            element_codes.append(row[5] or code)
+            # 优先用 ChromaDB 数据，ChromaDB 无数据时回退到历史候选详情
+            if not meta.get("cn_name") and code in history_detail_map:
+                detail = history_detail_map[code]
+                element_cnames.append(detail["cn_name"])
+                element_enames.append(detail["en_name"])
+                element_types.append(detail["type"] or source_type)
+                element_lengths.append(detail["length"] or length)
+                element_classifys.append(detail["classify"])
+                element_codes.append(detail["element_code"] or code)
+            else:
+                row = self._resolve_element_row(meta.get("cn_name", ""), meta)
+                element_cnames.append(row[0])
+                element_enames.append(row[1])
+                element_types.append(row[2] or source_type)
+                element_lengths.append(row[3] or length)
+                element_classifys.append(row[4])
+                element_codes.append(row[5] or code)
             element_scores.append(rank.get("score", 0))
-            if row[6]:
-                determiners_from_hc.append(row[6])
 
         deteminer_label = bool(determiners_from_hc and determiners_from_hc[0])
         deteminers = determiners_from_hc if deteminer_label else []
@@ -166,36 +196,82 @@ class MetadataRecommender:
         if extend_label:
             res["extendKey"] = extend_key
 
-        det_queries = normalize_det_queries(decomp, deteminer_label)
-        if det_queries:
-            det_cnames, det_enames, det_labels, det_scores = [], [], [], []
-            for det_q in det_queries:
-                q_candidates_raw = self.store.search_qualifiers([det_q], settings.recall_top_k)
-                q_candidates = [
-                    {
-                        "identifier": c.get("identifier") or c.get("id"),
-                        "cn_name": c.get("cn_name", ""),
-                        "score": c.get("score", 0),
-                    }
-                    for c in q_candidates_raw
-                ]
-                q_rank = rerank_qualifiers(det_q, q_candidates, settings.rerank_top_k, self.llm)
-                names = []
-                for r in q_rank:
-                    meta = self.store.get_qualifier_by_id(r["identifier"])
-                    names.append(meta["cn_name"] if meta else r["identifier"])
-                det_cnames.append(names)
-                det_enames.append([r["identifier"] for r in q_rank])
-                det_labels.append([0] * len(q_rank))
-                det_scores.append([r.get("score", 0) for r in q_rank])
-            res["deteminer"] = {
-                "cname": det_cnames,
-                "ename": det_enames,
-                "label": det_labels,
-                "score": det_scores,
-            }
+        # 限定词推荐：优先使用人工历史选择的限定词，否则走 LLM+向量通道
+        history_det = self._find_history_determiners(rankings, history_det_map)
+        if history_det:
+            res["deteminer"] = self._build_history_deteminer(history_det)
+        else:
+            det_queries = normalize_det_queries(decomp, deteminer_label)
+            if det_queries:
+                det_cnames, det_enames, det_labels, det_scores = [], [], [], []
+                for det_q in det_queries:
+                    q_candidates_raw = self.store.search_qualifiers([det_q], settings.recall_top_k)
+                    q_candidates = [
+                        {
+                            "identifier": c.get("identifier") or c.get("id"),
+                            "cn_name": c.get("cn_name", ""),
+                            "score": c.get("score", 0),
+                        }
+                        for c in q_candidates_raw
+                    ]
+                    q_rank = rerank_qualifiers(det_q, q_candidates, settings.rerank_top_k, self.llm)
+                    names = []
+                    for r in q_rank:
+                        meta = self.store.get_qualifier_by_id(r["identifier"])
+                        names.append(meta["cn_name"] if meta else r["identifier"])
+                    det_cnames.append(names)
+                    det_enames.append([r["identifier"] for r in q_rank])
+                    det_labels.append([0] * len(q_rank))
+                    det_scores.append([r.get("score", 0) for r in q_rank])
+                res["deteminer"] = {
+                    "cname": det_cnames,
+                    "ename": det_enames,
+                    "label": det_labels,
+                    "score": det_scores,
+                }
 
         return res
+
+    def _find_history_determiners(
+        self,
+        rankings: list[dict[str, Any]],
+        history_det_map: dict[str, dict[str, str]],
+    ) -> dict[str, str] | None:
+        """从排序结果中查找首个具有历史限定词的元素。"""
+        for rank in rankings:
+            code = rank.get("element_code", "")
+            if code in history_det_map:
+                return history_det_map[code]
+        return None
+
+    def _build_history_deteminer(self, history_det: dict[str, str]) -> dict[str, Any]:
+        """从历史限定词编码构建 deteminer 输出结构。
+
+        输出格式与 common_fields.py 的 _run_det() 一致：
+        {
+            "cname": [["人员编号"], ...],
+            "ename": [["RYBH"], ...],
+            "label": [[0], ...],
+            "score": [[1.0], ...]
+        }
+        """
+        det_cnames, det_enames = [], []
+        for code_key in ("determiner1_code", "determiner2_code"):
+            code = history_det.get(code_key, "")
+            if not code:
+                continue
+            meta = self.store.get_qualifier_by_id(code)
+            cn_name = meta["cn_name"] if meta else code
+            det_cnames.append([cn_name])
+            det_enames.append([code])
+        if not det_cnames:
+            return {}
+        return {
+            "cname": det_cnames,
+            "ename": det_enames,
+            "label": [[0] for _ in det_cnames],
+            "score": [[1.0] for _ in det_cnames],
+        }
 
     def recommend_batch(self, fields_info: list[dict], lyb_ename: str = "", with_extend: bool = False) -> dict:
         dict_fields = get_dict_fields(self.kb, lyb_ename.upper()).get("dictFields", []) if with_extend else []
