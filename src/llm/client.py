@@ -74,12 +74,18 @@ class EmbeddingClient:
                     payload = {"model": settings.embedding_model, "input": batch[0]}
                 else:
                     payload = {"model": settings.embedding_model, "input": batch}
-                logger.debug(f"Embedding request: model={settings.embedding_model}, input_type={type(payload['input']).__name__}")
-                resp = client.post(url, headers=headers, json=payload)
-                resp.raise_for_status()
-                data = resp.json()["data"]
-                data.sort(key=lambda x: x["index"])
-                all_vectors.extend(item["embedding"] for item in data)
+                logger.info(f"Embedding request: url={url}, model={settings.embedding_model}, batch_size={len(batch)}")
+                try:
+                    resp = client.post(url, headers=headers, json=payload)
+                    resp.raise_for_status()
+                    result = resp.json()
+                    data = result["data"]
+                    data.sort(key=lambda x: x["index"])
+                    all_vectors.extend(item["embedding"] for item in data)
+                except httpx.HTTPStatusError as e:
+                    logger.error(f"Embedding API error: {e.response.status_code}")
+                    logger.error(f"Response body: {e.response.text}")
+                    raise
         return all_vectors
 
     def embed_one(self, text: str) -> list[float]:
