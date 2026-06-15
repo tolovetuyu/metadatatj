@@ -67,7 +67,14 @@ class EmbeddingClient:
         with httpx.Client(timeout=settings.embedding_timeout) as client:
             for i in range(0, len(texts), batch_size):
                 batch = texts[i : i + batch_size]
-                payload = {"model": settings.embedding_model, "input": batch}
+                # 阿里云百炼 Embedding API 格式
+                # input 可以是单个字符串或字符串数组
+                # 为确保兼容性，单个文本时传字符串，多个文本时传数组
+                if len(batch) == 1:
+                    payload = {"model": settings.embedding_model, "input": batch[0]}
+                else:
+                    payload = {"model": settings.embedding_model, "input": batch}
+                logger.debug(f"Embedding request: model={settings.embedding_model}, input_type={type(payload['input']).__name__}")
                 resp = client.post(url, headers=headers, json=payload)
                 resp.raise_for_status()
                 data = resp.json()["data"]
