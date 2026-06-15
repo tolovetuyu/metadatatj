@@ -50,7 +50,13 @@ class EmbeddingClient:
         if not settings.embedding_api_key:
             raise RuntimeError("EMBEDDING_API_KEY 未配置")
 
-        url = f"{settings.embedding_api_base}/embeddings"
+        # 处理 API 路径：如果 base_url 已经包含 /embeddings，则不再拼接
+        base_url = settings.embedding_api_base.rstrip("/")
+        if base_url.endswith("/embeddings"):
+            url = base_url
+        else:
+            url = f"{base_url}/embeddings"
+
         headers = {
             "Authorization": f"Bearer {settings.embedding_api_key}",
             "Content-Type": "application/json",
