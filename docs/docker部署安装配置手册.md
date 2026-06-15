@@ -84,11 +84,11 @@ mysql -h <数据库地址> -u <用户名> -p metadata_history < docs/migration_a
 
 ```bash
 RECOMMEND_HOST=0.0.0.0
-RECOMMEND_PORT=6058
+RECOMMEND_PORT=7058
 TABLEMAP_HOST=0.0.0.0
-TABLEMAP_PORT=6061
+TABLEMAP_PORT=7059
 ADMIN_HOST=0.0.0.0
-ADMIN_PORT=6070
+ADMIN_PORT=7060
 ```
 
 ### 5.2 数据库配置
@@ -173,12 +173,14 @@ FIELD_MATCH_THRESHOLD=0.80
 docker run -d \
   --name metadatatj \
   --restart unless-stopped \
-  -p 6058:6058 \
+  -p 7058:7058 \
+  -p 7059:7059 \
+  -p 7060:7060 \
   -v /opt/metadataTJ/data:/app/data \
   -v /opt/metadataTJ/logs:/app/logs \
   -v /opt/metadataTJ/knowledge:/app/knowledge \
   --env-file .env \
-  metadatatj:latest recommend
+  metadatatj:latest
 ```
 
 ### 6.2 Docker Compose 运行
