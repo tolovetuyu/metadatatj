@@ -7,8 +7,8 @@ on:
 
 env:
   REGISTRY: "crpi-zzqrsg0sczeik6kc.cn-hangzhou.personal.cr.aliyuncs.com"
-  NAMESPACE: "metadatatj"        # 阿里云命名空间
-  IMAGE_NAME: "metadatatj01"     # 阿里云仓库名
+  NAMESPACE: "metadatatj"        # 命名空间保持不变
+  IMAGE_NAME: "metadataj01"      # 阿里云仓库名
 
 jobs:
   build-and-push:
