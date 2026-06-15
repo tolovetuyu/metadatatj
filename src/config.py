@@ -47,7 +47,8 @@ class Settings:
     embedding_api_base: str = os.getenv("EMBEDDING_API_BASE", "https://api.openai.com/v1").rstrip("/")
     embedding_api_key: str = os.getenv("EMBEDDING_API_KEY", "") or os.getenv("LLM_API_KEY", "")
     embedding_model: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
-    embedding_batch_size: int = _int("EMBEDDING_BATCH_SIZE", 64)
+    # 阿里云百炼限制 batch size 最大为 10
+    embedding_batch_size: int = _int("EMBEDDING_BATCH_SIZE", 10)
     embedding_timeout: int = _int("EMBEDDING_TIMEOUT", 60)
 
     recall_top_k: int = _int("RECALL_TOP_K", 30)
