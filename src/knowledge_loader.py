@@ -30,7 +30,7 @@ def _load_from_db() -> KnowledgeBase:
 
     # 加载限定词
     rows = db.query_all(
-        "SELECT chname, code, interalcode FROM rucp_element_determiner WHERE status = 1 and up_to_date =1"
+        "SELECT chname, code, interalcode FROM rucp_element_determiner WHERE state = '1' and up_to_date = 1"
     )
     if rows:
         determine_items = pd.DataFrame(rows)
