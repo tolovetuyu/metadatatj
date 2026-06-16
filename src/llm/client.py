@@ -81,7 +81,12 @@ class EmbeddingClient:
                     try:
                         resp = client.post(url, headers=headers, json=payload)
                         resp.raise_for_status()
-                        data = resp.json()["data"]
+                        result = resp.json()
+                        # 检查响应格式
+                        if "data" not in result:
+                            logger.error(f"Unexpected response format: {json.dumps(result, ensure_ascii=False)[:500]}")
+                            raise RuntimeError(f"Embedding API 返回格式错误，缺少 'data' 字段")
+                        data = result["data"]
                         data.sort(key=lambda x: x["index"])
                         all_vectors.extend(item["embedding"] for item in data)
                     except httpx.HTTPStatusError as e:
@@ -99,7 +104,12 @@ class EmbeddingClient:
                         try:
                             resp = client.post(url, headers=headers, json=payload)
                             resp.raise_for_status()
-                            all_vectors.append(resp.json()["embedding"])
+                            result = resp.json()
+                            # 检查响应格式
+                            if "embedding" not in result:
+                                logger.error(f"Unexpected response format: {json.dumps(result, ensure_ascii=False)[:500]}")
+                                raise RuntimeError(f"Embedding API 返回格式错误，缺少 'embedding' 字段")
+                            all_vectors.append(result["embedding"])
                         except httpx.HTTPStatusError as e:
                             logger.error(f"Embedding API error: {e.response.status_code}")
                             logger.error(f"Response body: {e.response.text}")
