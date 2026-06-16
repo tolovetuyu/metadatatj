@@ -1,0 +1,9 @@
+# 本地向量模型服务依赖
+
+# Web 服务
+fastapi>=0.100.0
+uvicorn>=0.23.0
+pydantic>=2.0.0
+
+# 向量模型库
+fastembed>=0.2.0
