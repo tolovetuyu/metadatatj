@@ -58,7 +58,7 @@ def _load_from_db() -> KnowledgeBase:
         "SELECT t.CODE, t.chname, t.enname FROM rucp_standard_dataset t "
         "INNER JOIN rucp_standard_class t2 ON t.standardclass = t2.id "
         "INNER JOIN rucp_setting_base t3 ON t3.type = t2.code AND t3.isuse = 1 "
-        "WHERE t.state = '1'"
+        "WHERE t.STATUS = 1"
     )
     if rows:
         table_catalog = pd.DataFrame(rows)
@@ -184,7 +184,7 @@ def _load_table_fields_from_db(table_ename: str) -> pd.DataFrame:
 
     # 先获取表ID
     row = db.query_one(
-        "SELECT id FROM rucp_standard_dataset WHERE enname = %s AND state = '1'",
+        "SELECT id FROM rucp_standard_dataset WHERE enname = %s AND status = 1",
         (table_ename,)
     )
     if not row:
