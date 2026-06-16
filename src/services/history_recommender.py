@@ -41,6 +41,8 @@ class HistoryRecommender:
     def __init__(self) -> None:
         self._enabled = settings.history_recommend_enabled
         self._table_name = settings.history_recommend_table
+        # 最小匹配次数阈值（默认超过5次才纳入统计）
+        self._min_match_count = settings.history_min_match_count
         # 内存缓存: key=source_cname, value=List[HistoryRecommend]
         self._cache: dict[str, list[HistoryRecommend]] = {}
         self._cache_lock = threading.RLock()
@@ -51,6 +53,8 @@ class HistoryRecommender:
         """
         从数据库加载历史推荐统计到内存缓存。
         应用启动时调用，或定时任务调用以刷新缓存。
+        
+        只加载匹配次数超过阈值的记录（默认超过5次才纳入统计）。
         """
         if not self._enabled:
             logger.info("历史推荐未启用，跳过缓存加载")
@@ -60,6 +64,7 @@ class HistoryRecommender:
 
         try:
             # 查询所有历史推荐统计，按匹配次数降序（使用历史数据库）
+            # 只加载匹配次数超过阈值的记录
             rows = db.history_query_all(f"""
                 SELECT
                     source_cname, source_ename, target_element_code,
@@ -68,7 +73,7 @@ class HistoryRecommender:
                     determiner1_code, determiner2_code,
                     match_count
                 FROM {self._table_name}
-                WHERE status = 1
+                WHERE status = 1 AND match_count >= {self._min_match_count}
                 ORDER BY source_cname, match_count DESC
             """)
 
@@ -98,7 +103,7 @@ class HistoryRecommender:
                 self._cache = new_cache
                 self._loaded = True
 
-            logger.info(f"历史推荐缓存加载完成，共 {len(rows)} 条记录，{len(new_cache)} 个源字段")
+            logger.info(f"历史推荐缓存加载完成，共 {len(rows)} 条记录（匹配次数 >= {self._min_match_count}），{len(new_cache)} 个源字段")
             return len(rows)
 
         except Exception as e:
@@ -129,7 +134,7 @@ class HistoryRecommender:
         """
         将历史推荐结果与候选结果合并。
         
-        历史结果（按匹配次数排序）优先排在前面，
+        历史结果（按匹配次数排序，且匹配次数 >= 阈值）优先排在前面，
         剩余位置由模型/向量库候选结果补充。
         """
         if not self._enabled:
@@ -140,25 +145,32 @@ class HistoryRecommender:
             return candidates[:top_k]
 
         # 将历史结果转换为候选格式
+        # 只使用匹配次数超过阈值的记录作为 top1
         history_candidates = []
         for h in history:
-            history_candidates.append({
-                "element_code": h.target_element_code,
-                "cn_name": h.target_cn_name,
-                "en_name": h.target_en_name,
-                "type": h.target_type,
-                "length": h.target_length,
-                "classify": h.target_classify,
-                "score": 1.0,  # 历史结果给最高分
-                "is_history": True,
-                "match_count": h.match_count,
-                "determiner": h.determiner,
-                "determiner1_code": h.determiner1_code,
-                "determiner2_code": h.determiner2_code,
-            })
+            # 只纳入匹配次数超过阈值的记录
+            if h.match_count >= self._min_match_count:
+                history_candidates.append({
+                    "element_code": h.target_element_code,
+                    "cn_name": h.target_cn_name,
+                    "en_name": h.target_en_name,
+                    "type": h.target_type,
+                    "length": h.target_length,
+                    "classify": h.target_classify,
+                    "score": 1.0,  # 历史结果给最高分
+                    "is_history": True,
+                    "match_count": h.match_count,
+                    "determiner": h.determiner,
+                    "determiner1_code": h.determiner1_code,
+                    "determiner2_code": h.determiner2_code,
+                })
+
+        # 如果没有满足阈值的历史记录，直接返回候选结果
+        if not history_candidates:
+            return candidates[:top_k]
 
         # 合并结果：历史结果在前，去重后的候选结果在后
-        used_codes = {h.target_element_code for h in history}
+        used_codes = {h["element_code"] for h in history_candidates}
         remaining_candidates = [c for c in candidates if c.get("element_code") not in used_codes]
 
         # 计算需要从候选中取的数量

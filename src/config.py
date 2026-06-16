@@ -87,6 +87,8 @@ class Settings:
     history_recommend_table: str = os.getenv("HISTORY_RECOMMEND_TABLE", "rucp_history_recommend_stat")
     history_source_table: str = os.getenv("HISTORY_SOURCE_TABLE", "rucp_element_mapping_history")
     history_sync_interval_hours: float = _float("HISTORY_SYNC_INTERVAL_HOURS", 24.0)
+    # 历史推荐最小匹配次数阈值（默认超过5次才纳入统计）
+    history_min_match_count: int = _int("HISTORY_MIN_MATCH_COUNT", 5)
 
     # 人工对标过程表（rucp_task_process 与历史库同库）
     task_process_table: str = os.getenv("TASK_PROCESS_TABLE", "rucp_task_process")
