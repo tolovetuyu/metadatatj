@@ -47,46 +47,64 @@ class EmbeddingClient:
     def embed(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
-        if not settings.embedding_api_key:
-            raise RuntimeError("EMBEDDING_API_KEY 未配置")
+        if not settings.embedding_api_base:
+            raise RuntimeError("EMBEDDING_API_BASE 未配置")
 
-        # 处理 API 路径：如果 base_url 已经包含 /embeddings，则不再拼接
-        base_url = settings.embedding_api_base.rstrip("/")
-        if base_url.endswith("/embeddings"):
-            url = base_url
+        # 构建 URL：确保 base 不以 /embeddings 结尾则拼接
+        base = settings.embedding_api_base.rstrip("/")
+        if not base.endswith("/embeddings"):
+            url = f"{base}/embeddings"
         else:
-            url = f"{base_url}/embeddings"
+            url = base
 
         headers = {
-            "Authorization": f"Bearer {settings.embedding_api_key}",
             "Content-Type": "application/json",
         }
+        # 如果有 API Key 则添加（Ollama 不需要，阿里云需要）
+        if settings.embedding_api_key:
+            headers["Authorization"] = f"Bearer {settings.embedding_api_key}"
+
         all_vectors: list[list[float]] = []
-        batch_size = settings.embedding_batch_size
 
         with httpx.Client(timeout=settings.embedding_timeout) as client:
-            for i in range(0, len(texts), batch_size):
-                batch = texts[i : i + batch_size]
-                # 阿里云百炼 Embedding API 格式
-                # input 可以是单个字符串或字符串数组
-                # 为确保兼容性，单个文本时传字符串，多个文本时传数组
-                if len(batch) == 1:
-                    payload = {"model": settings.embedding_model, "input": batch[0]}
+            for i in range(0, len(texts), settings.embedding_batch_size):
+                batch = texts[i : i + settings.embedding_batch_size]
+
+                # 根据是否有 API Key 判断使用哪种格式
+                if settings.embedding_api_key:
+                    # 阿里云/OpenAI 格式：支持批量
+                    payload = {
+                        "model": settings.embedding_model,
+                        "input": batch if len(batch) > 1 else batch[0]
+                    }
+                    logger.info(f"Embedding request (OpenAI format): url={url}, model={settings.embedding_model}, batch_size={len(batch)}")
+                    try:
+                        resp = client.post(url, headers=headers, json=payload)
+                        resp.raise_for_status()
+                        data = resp.json()["data"]
+                        data.sort(key=lambda x: x["index"])
+                        all_vectors.extend(item["embedding"] for item in data)
+                    except httpx.HTTPStatusError as e:
+                        logger.error(f"Embedding API error: {e.response.status_code}")
+                        logger.error(f"Response body: {e.response.text}")
+                        raise
                 else:
-                    payload = {"model": settings.embedding_model, "input": batch}
-                logger.info(f"Embedding request: url={url}, model={settings.embedding_model}, batch_size={len(batch)}, input_type={type(payload['input']).__name__}")
-                logger.debug(f"Payload: {json.dumps(payload, ensure_ascii=False)[:200]}")
-                try:
-                    resp = client.post(url, headers=headers, json=payload)
-                    resp.raise_for_status()
-                    result = resp.json()
-                    data = result["data"]
-                    data.sort(key=lambda x: x["index"])
-                    all_vectors.extend(item["embedding"] for item in data)
-                except httpx.HTTPStatusError as e:
-                    logger.error(f"Embedding API error: {e.response.status_code}")
-                    logger.error(f"Response body: {e.response.text}")
-                    raise
+                    # Ollama 格式：不支持批量，需要循环
+                    logger.info(f"Embedding request (Ollama format): url={url}, model={settings.embedding_model}, batch_size={len(batch)}")
+                    for text in batch:
+                        payload = {
+                            "model": settings.embedding_model,
+                            "prompt": text
+                        }
+                        try:
+                            resp = client.post(url, headers=headers, json=payload)
+                            resp.raise_for_status()
+                            all_vectors.append(resp.json()["embedding"])
+                        except httpx.HTTPStatusError as e:
+                            logger.error(f"Embedding API error: {e.response.status_code}")
+                            logger.error(f"Response body: {e.response.text}")
+                            raise
+
         return all_vectors
 
     def embed_one(self, text: str) -> list[float]:
