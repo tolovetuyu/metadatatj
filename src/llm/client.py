@@ -74,7 +74,8 @@ class EmbeddingClient:
                     payload = {"model": settings.embedding_model, "input": batch[0]}
                 else:
                     payload = {"model": settings.embedding_model, "input": batch}
-                logger.info(f"Embedding request: url={url}, model={settings.embedding_model}, batch_size={len(batch)}")
+                logger.info(f"Embedding request: url={url}, model={settings.embedding_model}, batch_size={len(batch)}, input_type={type(payload['input']).__name__}")
+                logger.debug(f"Payload: {json.dumps(payload, ensure_ascii=False)[:200]}")
                 try:
                     resp = client.post(url, headers=headers, json=payload)
                     resp.raise_for_status()
