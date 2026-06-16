@@ -71,10 +71,15 @@ def build_tables(store: ChromaVectorStore, kb) -> None:
     source_names = cat["1"].tolist()
     store.reset_collection(COLLECTION_TABLES)
     ids, docs, metas = [], [], []
+    seen_ids = set()  # 用于去重
     for src, cn, en in zip(source_names, cn_names, en_names):
         if not cn or cn == "自定义":
             continue
         doc_id = en or cn
+        # 跳过重复的 ID
+        if doc_id in seen_ids:
+            continue
+        seen_ids.add(doc_id)
         ids.append(doc_id)
         docs.append(f"{cn} | {en} | {src}")
         metas.append({"cn_name": cn, "en_name": en, "source_name": src})
