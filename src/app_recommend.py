@@ -11,10 +11,12 @@ from knowledge_loader import load_knowledge
 from logging_config import setup_logging
 from services.common_fields import build_common_fields
 from services.data_quality_analyzer import get_data_quality_analyzer
+from services.dict_recommender import get_dict_recommender
 from services.field_name_recommender import get_field_name_recommender
 from services.history_recommender import get_history_recommender
 from services.recommender import MetadataRecommender
 from services.scheduler import start_scheduler
+from vector.chroma_store import ChromaVectorStore
 
 # 配置日志轮转
 setup_logging(app_name="recommend", level=logging.INFO, max_bytes=10*1024*1024, backup_count=5)
@@ -184,6 +186,39 @@ def field_name_recommend():
         return jsonify(result)
     except Exception as e:
         logger.error(f"字段名称推荐失败: {e}")
+        return jsonify({"error": str(e)})
+
+
+@app.route("/autoexport/api/dict/recommend", methods=["POST"])
+def dict_recommend():
+    """根据枚举值推荐字典。
+
+    请求参数:
+        enum_values: 枚举值列表，如 ["男", "女"]
+        top_k: 返回前几个推荐（默认 5）
+
+    返回:
+        推荐的字典列表，包含匹配数和可信度
+    """
+    try:
+        data = request.get_json(force=True)
+    except Exception:
+        return jsonify({"error": "输入参数异常！"})
+
+    enum_values = data.get("enum_values", [])
+    top_k = data.get("top_k", 5)
+
+    if not enum_values:
+        return jsonify({"error": "enum_values 不能为空！"})
+
+    try:
+        store = ChromaVectorStore()
+        recommender = get_dict_recommender(store)
+        result = recommender.recommend(enum_values, top_k)
+        logger.info(f"字典推荐完成，枚举值: {enum_values}, 推荐数: {len(result)}")
+        return jsonify({"recommendations": result})
+    except Exception as e:
+        logger.error(f"字典推荐失败: {e}")
         return jsonify({"error": str(e)})
 
 
