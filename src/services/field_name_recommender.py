@@ -76,11 +76,12 @@ class FieldNameRecommender:
 - 中：组合词或常见缩写，如 user_name, yonghu_ming等
 - 低：不常见或需要更多上下文才能确定的字段"""
 
-        user_prompt = """请为以下字段推荐中文名（可能是英文、拼音或拼音首字母缩写）：
+        user_prompt = """请为以下 {} 个字段逐个推荐中文名（可能是英文、拼音或拼音首字母缩写）：
 
 {}
 
-请逐个分析每个字段并给出最可能的中文名称。""".format(fields_str)
+【重要】必须为每一个字段都给出推荐结果，不能遗漏任何一个。
+输出 JSON 格式的数组，包含所有 {} 个字段的推荐结果。""".format(len(field_names), fields_str, len(field_names))
 
         try:
             result = self._client.chat_json(
