@@ -1,6 +1,9 @@
 """定时任务调度器。
 
 负责定时同步历史推荐统计数据。
+支持两种调度模式：
+1. 间隔模式：按指定时间间隔执行（如每24小时）
+2. 定时模式：每天指定时间执行（如每天凌晨1点）
 """
 
 from __future__ import annotations
@@ -33,13 +36,38 @@ class Scheduler:
         interval_hours: float = 24,
         run_at_start: bool = False,
     ) -> None:
-        """添加定时任务。"""
+        """添加定时任务（间隔模式）。"""
         self._tasks.append({
             "name": name,
             "func": func,
             "interval_hours": interval_hours,
             "run_at_start": run_at_start,
             "last_run": None,
+            "mode": "interval",
+        })
+
+    def add_daily_task(
+        self,
+        name: str,
+        func: Callable,
+        run_at_time: str = "01:00",
+        run_at_start: bool = False,
+    ) -> None:
+        """添加定时任务（每天指定时间执行）。
+
+        Args:
+            name: 任务名称
+            func: 任务函数
+            run_at_time: 执行时间，格式 "HH:MM"（如 "01:00" 表示凌晨1点）
+            run_at_start: 启动时是否立即执行一次
+        """
+        self._tasks.append({
+            "name": name,
+            "func": func,
+            "run_at_time": run_at_time,
+            "run_at_start": run_at_start,
+            "last_run": None,
+            "mode": "daily",
         })
 
     def _run_task(self, task: dict) -> None:
@@ -52,23 +80,43 @@ class Scheduler:
         except Exception as e:
             logger.error(f"任务执行失败: {task['name']}, 错误: {e}")
 
+    def _should_run_task(self, task: dict, now: datetime) -> bool:
+        """判断任务是否应该执行。"""
+        last_run = task["last_run"]
+        mode = task.get("mode", "interval")
+
+        if mode == "daily":
+            # 定时模式：每天指定时间执行
+            run_at_time = task.get("run_at_time", "01:00")
+            target_hour, target_minute = map(int, run_at_time.split(":"))
+
+            # 判断当前时间是否在目标时间的前一分钟内（避免漏掉）
+            if now.hour == target_hour and now.minute == 0:
+                # 如果今天还没执行过，或者上次执行不是今天
+                if last_run is None or last_run.date() != now.date():
+                    return True
+            return False
+        else:
+            # 间隔模式：按指定时间间隔执行
+            interval = timedelta(hours=task.get("interval_hours", 24))
+            if last_run is None or (now - last_run) >= interval:
+                return True
+            return False
+
     def _scheduler_loop(self) -> None:
         """调度循环。"""
         logger.info("定时任务调度器启动")
 
         # 启动时执行标记了 run_at_start 的任务
         for task in self._tasks:
-            if task["run_at_start"]:
+            if task.get("run_at_start"):
                 self._run_task(task)
 
         while self._running:
             now = datetime.now()
 
             for task in self._tasks:
-                last_run = task["last_run"]
-                interval = timedelta(hours=task["interval_hours"])
-
-                if last_run is None or (now - last_run) >= interval:
+                if self._should_run_task(task, now):
                     self._run_task(task)
 
             # 每分钟检查一次
@@ -146,12 +194,11 @@ def start_scheduler() -> None:
 
     scheduler = get_scheduler()
 
-    # 添加历史推荐同步任务（每天凌晨2点执行）
-    # 这里简化为每24小时执行一次
-    scheduler.add_task(
+    # 添加历史推荐同步任务（每天凌晨1点执行）
+    scheduler.add_daily_task(
         name="sync_history_recommend",
         func=sync_history_recommend,
-        interval_hours=settings.history_sync_interval_hours,
+        run_at_time=settings.history_sync_run_at_time,
         run_at_start=True,  # 启动时执行一次
     )
 

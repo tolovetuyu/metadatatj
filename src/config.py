@@ -86,7 +86,7 @@ class Settings:
     history_recommend_enabled: bool = _bool("HISTORY_RECOMMEND_ENABLED", False)
     history_recommend_table: str = os.getenv("HISTORY_RECOMMEND_TABLE", "rucp_history_recommend_stat")
     history_source_table: str = os.getenv("HISTORY_SOURCE_TABLE", "rucp_element_mapping_history")
-    history_sync_interval_hours: float = _float("HISTORY_SYNC_INTERVAL_HOURS", 24.0)
+    history_sync_run_at_time: str = os.getenv("HISTORY_SYNC_RUN_AT_TIME", "01:00")  # 每天凌晨1点
     # 历史推荐最小匹配次数阈值（默认超过5次才纳入统计）
     history_min_match_count: int = _int("HISTORY_MIN_MATCH_COUNT", 5)
 
