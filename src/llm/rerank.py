@@ -12,7 +12,13 @@ logger = logging.getLogger(__name__)
 
 _ELEMENT_RERANK_SYSTEM = """你是公安标准数据元对标专家。根据来源字段，从候选数据元列表中选出最匹配的 Top N。
 只能从候选列表中选择，禁止编造 ID。
-输出 JSON：
+
+【重要】你必须只输出纯 JSON 格式，不要任何额外内容：
+- 不要输出 Markdown 格式（不要 ```json ``` 包裹）
+- 不要输出解释说明
+- 直接输出 JSON 对象
+
+输出 JSON 格式：
 {
   "rankings": [
     {"element_code": "DE...", "score": 0.95, "reason": "简短理由"}
@@ -22,7 +28,13 @@ score 为 0-1，按匹配度降序，数量不超过要求的 N。"""
 
 _QUALIFIER_RERANK_SYSTEM = """你是公安标准限定词对标专家。根据限定词语义，从候选限定词列表中选出 Top N。
 只能从候选列表中选择 identifier 字段，禁止编造。
-输出 JSON：
+
+【重要】你必须只输出纯 JSON 格式，不要任何额外内容：
+- 不要输出 Markdown 格式（不要 ```json ``` 包裹）
+- 不要输出解释说明
+- 直接输出 JSON 对象
+
+输出 JSON 格式：
 {
   "rankings": [
     {"identifier": "XX", "score": 0.9, "reason": "简短理由"}

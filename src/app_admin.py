@@ -8,8 +8,11 @@ from flask import Flask
 
 from admin.routes import admin_bp
 from config import settings
+from logging_config import setup_logging
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+# 配置日志轮转
+setup_logging(app_name="admin", level=logging.INFO, max_bytes=10*1024*1024, backup_count=5)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = settings.admin_secret_key

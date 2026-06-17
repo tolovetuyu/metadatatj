@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """OpenAI 兼容 HTTP 客户端。"""
 
 from __future__ import annotations
@@ -37,10 +38,81 @@ class LLMClient:
             resp.raise_for_status()
             content = resp.json()["choices"][0]["message"]["content"]
         try:
+            # 尝试直接解析 JSON
             return json.loads(content)
-        except json.JSONDecodeError as exc:
-            logger.error("LLM 返回非 JSON: %s", content[:500])
-            raise RuntimeError("LLM 返回格式错误") from exc
+        except json.JSONDecodeError:
+            # 如果直接解析失败，尝试提取 Markdown 中的 JSON
+            json_str = self._extract_json_from_markdown(content)
+            if json_str:
+                try:
+                    return json.loads(json_str)
+                except json.JSONDecodeError as exc:
+                    logger.error("LLM 返回非 JSON: %s", content[:500])
+                    raise RuntimeError("LLM 返回格式错误") from exc
+            else:
+                logger.error("LLM 返回非 JSON: %s", content[:500])
+                raise RuntimeError("LLM 返回格式错误")
+
+    def _extract_json_from_markdown(self, content: str) -> str | None:
+        """从 Markdown 格式中提取 JSON 内容。"""
+        import re
+        
+        # 先移除思考过程标签（如  ... ）
+        content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+        content = re.sub(r'思考过程：.*?(?=```|\{)', '', content, flags=re.DOTALL)
+        
+        # 尝试匹配 ```json ... ``` 格式
+        pattern = r'```json\s*(.*?)\s*```'
+        match = re.search(pattern, content, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        
+        # 尝试匹配 ``` ... ``` 格式（没有 json 标记）
+        pattern = r'```\s*(.*?)\s*```'
+        match = re.search(pattern, content, re.DOTALL)
+        if match:
+            result = match.group(1).strip()
+            # 检查是否是 JSON（以 { 开头）
+            if result.startswith('{') or result.startswith('['):
+                return result
+        
+        # 尝试匹配 { ... } 格式（直接 JSON）
+        pattern = r'\{[^{}]*\}'
+        match = re.search(pattern, content, re.DOTALL)
+        if match:
+            return match.group(0).strip()
+        
+        # 尝试匹配嵌套的 { ... } 格式
+        pattern = r'\{.*\}'
+        match = re.search(pattern, content, re.DOTALL)
+        if match:
+            return match.group(0).strip()
+        
+        return None
+
+    def chat_text(self, system: str, user: str) -> str:
+        """Call LLM and return plain text response (not JSON)."""
+        if not settings.llm_api_key:
+            raise RuntimeError("LLM_API_KEY 未配置")
+
+        url = f"{settings.llm_api_base}/chat/completions"
+        payload = {
+            "model": settings.llm_model,
+            "temperature": settings.llm_temperature,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+        }
+        headers = {
+            "Authorization": f"Bearer {settings.llm_api_key}",
+            "Content-Type": "application/json",
+        }
+        with httpx.Client(timeout=settings.llm_timeout) as client:
+            resp = client.post(url, headers=headers, json=payload)
+            resp.raise_for_status()
+            content = resp.json()["choices"][0]["message"]["content"]
+        return content
 
 
 class EmbeddingClient:
@@ -66,36 +138,16 @@ class EmbeddingClient:
 
         all_vectors: list[list[float]] = []
 
+        # 根据 URL 判断是否是 Ollama（Ollama 不支持批量）
+        is_ollama = "11434" in url or "ollama" in url.lower() or "/api/embeddings" in url
+
         with httpx.Client(timeout=settings.embedding_timeout) as client:
             for i in range(0, len(texts), settings.embedding_batch_size):
                 batch = texts[i : i + settings.embedding_batch_size]
 
-                # 根据是否有 API Key 判断使用哪种格式
-                if settings.embedding_api_key:
-                    # 阿里云/OpenAI 格式：支持批量
-                    payload = {
-                        "model": settings.embedding_model,
-                        "input": batch if len(batch) > 1 else batch[0]
-                    }
-                    logger.info(f"Embedding request (OpenAI format): url={url}, model={settings.embedding_model}, batch_size={len(batch)}")
-                    try:
-                        resp = client.post(url, headers=headers, json=payload)
-                        resp.raise_for_status()
-                        result = resp.json()
-                        # 检查响应格式
-                        if "data" not in result:
-                            logger.error(f"Unexpected response format: {json.dumps(result, ensure_ascii=False)[:500]}")
-                            raise RuntimeError(f"Embedding API 返回格式错误，缺少 'data' 字段")
-                        data = result["data"]
-                        data.sort(key=lambda x: x["index"])
-                        all_vectors.extend(item["embedding"] for item in data)
-                    except httpx.HTTPStatusError as e:
-                        logger.error(f"Embedding API error: {e.response.status_code}")
-                        logger.error(f"Response body: {e.response.text}")
-                        raise
-                else:
+                if is_ollama:
                     # Ollama 格式：不支持批量，需要循环
-                    logger.info(f"Embedding request (Ollama format): url={url}, model={settings.embedding_model}, batch_size={len(batch)}")
+                    logger.info(f"Embedding request (Ollama format): url={url}, model={settings.embedding_model}, texts={len(batch)}")
                     for text in batch:
                         payload = {
                             "model": settings.embedding_model,
@@ -114,6 +166,46 @@ class EmbeddingClient:
                             logger.error(f"Embedding API error: {e.response.status_code}")
                             logger.error(f"Response body: {e.response.text}")
                             raise
+                else:
+                    # OpenAI/阿里云格式：支持批量
+                    payload = {
+                        "model": settings.embedding_model,
+                        "input": batch if len(batch) > 1 else batch[0]
+                    }
+                    logger.info(f"Embedding request (OpenAI format): url={url}, model={settings.embedding_model}, batch_size={len(batch)}")
+                    try:
+                        resp = client.post(url, headers=headers, json=payload)
+                        resp.raise_for_status()
+                        result = resp.json()
+                        
+                        # 根据响应格式自动判断
+                        if "data" in result:
+                            # OpenAI/阿里云格式
+                            data = result["data"]
+                            data.sort(key=lambda x: x["index"])
+                            all_vectors.extend(item["embedding"] for item in data)
+                        elif "embedding" in result:
+                            # Ollama 格式响应，但请求格式不对，需要重新用 Ollama 格式请求
+                            logger.warning(f"检测到 Ollama 格式响应，但 URL 判断为非 Ollama，请检查配置")
+                            for text in batch:
+                                ollama_payload = {
+                                    "model": settings.embedding_model,
+                                    "prompt": text
+                                }
+                                resp = client.post(url, headers=headers, json=ollama_payload)
+                                resp.raise_for_status()
+                                ollama_result = resp.json()
+                                if "embedding" not in ollama_result:
+                                    logger.error(f"Unexpected response format: {json.dumps(ollama_result, ensure_ascii=False)[:500]}")
+                                    raise RuntimeError(f"Embedding API 返回格式错误，缺少 'embedding' 字段")
+                                all_vectors.append(ollama_result["embedding"])
+                        else:
+                            logger.error(f"Unexpected response format: {json.dumps(result, ensure_ascii=False)[:500]}")
+                            raise RuntimeError(f"Embedding API 返回格式错误，缺少 'data' 或 'embedding' 字段")
+                    except httpx.HTTPStatusError as e:
+                        logger.error(f"Embedding API error: {e.response.status_code}")
+                        logger.error(f"Response body: {e.response.text}")
+                        raise
 
         return all_vectors
 

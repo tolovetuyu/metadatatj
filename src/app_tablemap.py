@@ -7,9 +7,11 @@ import logging
 from flask import Flask, jsonify, request
 
 from knowledge_loader import load_knowledge
+from logging_config import setup_logging
 from services.table_mapper import TableMapper
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+# 配置日志轮转
+setup_logging(app_name="tablemap", level=logging.INFO, max_bytes=10*1024*1024, backup_count=5)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)

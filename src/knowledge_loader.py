@@ -55,7 +55,7 @@ def _load_from_db() -> KnowledgeBase:
 
     # 加载表目录
     rows = db.query_all(
-        "SELECT t.CODE, t.chname, t.enname FROM rucp_standard_dataset t "
+        "SELECT DISTINCT t.CODE, t.chname, t.enname FROM rucp_standard_dataset t "
         "INNER JOIN rucp_standard_class t2 ON t.standardclass = t2.id "
         "INNER JOIN rucp_setting_base t3 ON t3.type = t2.code AND t3.isuse = 1 "
         "WHERE t.STATUS = 1"
@@ -192,7 +192,7 @@ def _load_table_fields_from_db(table_ename: str) -> pd.DataFrame:
 
     dataset_id = row["id"]
     rows = db.query_all(
-        "SELECT seq, chname, enname, description, determiner_ename, determiner_code, determiner_cname, "
+        "SELECT DISTINCT seq, chname, enname, description, determiner_ename, determiner_code, determiner_cname, "
         "bzeleid, elementid, bzele_cname, type, length, codeset, isrequire, default_value, "
         "ismultivalue, isindex, isunique, dataclass, safelevel, '', remark1, '' "
         "FROM rucp_standard_dataset_ele WHERE datasetid = %s AND isinvalid = 0 ORDER BY seq",

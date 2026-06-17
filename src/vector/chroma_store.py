@@ -24,6 +24,7 @@ COLLECTION_ELEMENTS = "data_elements"
 COLLECTION_QUALIFIERS = "qualifiers"
 COLLECTION_TABLES = "standard_tables"
 COLLECTION_TABLE_FIELDS = "table_fields"
+COLLECTION_DICT_ITEMS = "dict_items"
 
 
 class ChromaVectorStore:
@@ -149,6 +150,12 @@ class ChromaVectorStore:
             return None
         return {**res["metadatas"][0], "id": res["ids"][0]}
 
+    def search_dict_items(self, query_texts: list[str], top_k: int = 10) -> list[dict[str, Any]]:
+        """查询字典项"""
+        return self._query_with_embedding(
+            COLLECTION_DICT_ITEMS, query_texts, top_k
+        )
+
     def count(self, collection_name: str) -> int:
         return self._collection(collection_name).count()
 
@@ -174,4 +181,5 @@ class ChromaVectorStore:
             COLLECTION_QUALIFIERS: self.count(COLLECTION_QUALIFIERS),
             COLLECTION_TABLES: self.count(COLLECTION_TABLES),
             COLLECTION_TABLE_FIELDS: self.count(COLLECTION_TABLE_FIELDS),
+            COLLECTION_DICT_ITEMS: self.count(COLLECTION_DICT_ITEMS),
         }

@@ -15,11 +15,20 @@ logger = logging.getLogger(__name__)
 _DECOMPOSE_SYSTEM = """你是公安/metadata 数据元对标专家。分析来源字段是否由「限定词 + 数据元」构成。
 限定词表示修饰关系（如：父亲、法定代表人、RUN）。
 数据元表示核心语义（如：姓名、地址、日期、代码）。
-只输出 JSON，字段：
-- core_element_hint: 数据元核心语义（字符串）
-- qualifier_hints: 限定词列表（字符串数组，可为空）
-- english_hint: 英文名语义提示
-- confidence: 0-1 浮点数
+
+【重要】你必须只输出纯 JSON 格式，不要任何额外内容：
+- 不要输出 Markdown 格式（不要 ```json ``` 包裹）
+- 不要输出解释说明
+- 不要输出分析过程
+- 直接输出 JSON 对象
+
+输出 JSON 格式：
+{
+  "core_element_hint": "数据元核心语义",
+  "qualifier_hints": ["限定词列表"],
+  "english_hint": "英文名语义提示",
+  "confidence": 0.8
+}
 """
 
 _SUFFIXES = ("姓名", "地址", "日期", "时间", "代码", "编号", "金额", "状况", "情况", "名称")

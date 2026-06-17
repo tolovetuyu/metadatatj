@@ -18,6 +18,7 @@ from config import settings
 from knowledge_loader import load_knowledge, load_table_fields
 from llm.client import EmbeddingClient
 from vector.chroma_store import (
+    COLLECTION_DICT_ITEMS,
     COLLECTION_ELEMENTS,
     COLLECTION_QUALIFIERS,
     COLLECTION_TABLE_FIELDS,
@@ -37,11 +38,12 @@ def _qualifier_doc(row) -> str:
 def build_elements(store: ChromaVectorStore, kb) -> None:
     df = kb.element_items
     store.reset_collection(COLLECTION_ELEMENTS)
-    ids = df["element_code"].tolist()
+    # 优先使用 inner_code 作为 element_code（与旧代码保持一致）
+    ids = df.apply(lambda row: row.inner_code if row.inner_code else row.element_code, axis=1).tolist()
     docs = [_element_doc(row) for row in df.itertuples()]
     metas = [
         {
-            "element_code": row.element_code,
+            "element_code": row.inner_code if row.inner_code else row.element_code,
             "cn_name": row.cn_name,
             "en_name": row.en_name,
             "type": row.type,
@@ -92,6 +94,7 @@ def build_table_fields(store: ChromaVectorStore, kb) -> None:
     en_names = [e for e in cat["2"].tolist() if e and e != "自定义"]
     store.reset_collection(COLLECTION_TABLE_FIELDS)
     ids, docs, metas = [], [], []
+    seen_ids = set()  # 用于去重
     for en in en_names:
         try:
             df = load_table_fields(en)
@@ -104,6 +107,10 @@ def build_table_fields(store: ChromaVectorStore, kb) -> None:
             if not field_cn:
                 continue
             doc_id = f"{en}::{field_en or field_cn}"
+            # 跳过重复的 ID
+            if doc_id in seen_ids:
+                continue
+            seen_ids.add(doc_id)
             ids.append(doc_id)
             docs.append(f"{field_cn} | {field_en} | {en}")
             metas.append({
@@ -114,6 +121,56 @@ def build_table_fields(store: ChromaVectorStore, kb) -> None:
     if ids:
         store.upsert_batch(COLLECTION_TABLE_FIELDS, ids, docs, metas)
     print(f"  表字段: {len(ids)} 条")
+
+
+def build_dict_items(store: ChromaVectorStore, kb) -> None:
+    """构建字典项向量索引"""
+    import db
+
+    # 查询字典和字典项
+    rows = db.query_all(
+        "SELECT c.id, c.name, c.inner_identify, c.code, ci.name as item_name "
+        "FROM rucp_codeset c "
+        "INNER JOIN rucp_codeset_item ci ON ci.codesetid = c.id "
+        "WHERE c.state = '1' "
+        "ORDER BY c.id"
+    )
+
+    if not rows:
+        print(f"  字典项: 0 条")
+        return
+
+    store.reset_collection(COLLECTION_DICT_ITEMS)
+    ids, docs, metas = [], [], []
+    seen_ids = set()
+
+    for row in rows:
+        dict_id = row["id"]
+        dict_name = row["name"]
+        dict_code = row["inner_identify"] or row["code"]
+        item_name = row["item_name"]
+
+        # 生成唯一 ID
+        doc_id = f"dict_{dict_id}_{item_name}"
+        if doc_id in seen_ids:
+            continue
+        seen_ids.add(doc_id)
+
+        # 文档: "字典名称|字典项名称"
+        doc = f"{dict_name}|{item_name}"
+        meta = {
+            "dict_id": dict_id,
+            "dict_name": dict_name,
+            "dict_code": dict_code,
+            "item_name": item_name,
+        }
+
+        ids.append(doc_id)
+        docs.append(doc)
+        metas.append(meta)
+
+    store.upsert_batch(COLLECTION_DICT_ITEMS, ids, docs, metas)
+    print(f"  字典项: {len(ids)} 条")
 
 
 def main() -> None:
@@ -127,6 +184,7 @@ def main() -> None:
     build_qualifiers(store, kb)
     build_tables(store, kb)
     build_table_fields(store, kb)
+    build_dict_items(store, kb)
     print("完成。")
 
 

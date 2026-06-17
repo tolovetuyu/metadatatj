@@ -84,20 +84,37 @@ class MetadataRecommender:
         gz = gz or []
         map_list = map_list or []
 
+        logger.info(f"[推荐开始] 字段: {cname} ({ename}), 类型: {source_type}, 长度: {length}")
+
+        # 1. 字段分解
         decomp = decompose_field(cname, ename, self.llm)
+        logger.info(
+            f"[字段分解] 方式: {'LLM' if settings.llm_decompose_enabled else '规则'}, "
+            f"核心数据元: {decomp.core_element_hint}, 限定词: {decomp.raw_determiners}, "
+            f"置信度: {decomp.confidence}"
+        )
+
         if (not extend_label) and decomp.core_element_hint in ZK_CODES:
             decomp = decompose_field(cname + "代码", ename, self.llm)
+            logger.info(f"[字段分解] 特殊规则触发，重新分解: {cname}代码 → {decomp.core_element_hint}")
         if extend_label and (not decomp.core_element_hint.endswith("代码")):
             decomp.raw_determiners.append(decomp.core_element_hint)
             decomp.core_element_hint = "信息代码"
+            logger.info(f"[字段分解] 扩展模式，数据元改为: 信息代码")
 
         queries = build_retrieval_queries(cname, ename, decomp)
         element_query = self._apply_photo_rule(decomp.core_element_hint, decomp.core_element_hint)
         if element_query != decomp.core_element_hint:
             queries["element"].insert(0, element_query)
+            logger.info(f"[特殊规则] 照片 → 电子文件存放路径")
 
-        # 向量召回候选（ChromaDB 无数据时返回空列表，不阻断流程）
+        # 2. 向量召回候选
         raw_candidates = self.store.search_elements(queries["element"], settings.recall_top_k)
+        logger.info(
+            f"[向量召回] 查询词: {queries['element'][:3]}, "
+            f"召回候选数: {len(raw_candidates)}, "
+            f"向量库状态: {'有数据' if raw_candidates else '无数据/空'}"
+        )
         candidates = []
         for c in raw_candidates:
             code = c.get("element_code") or c.get("id")
@@ -114,9 +131,16 @@ class MetadataRecommender:
                 "score": c.get("score", 0),
             })
 
-        # 合并历史推荐结果（历史结果优先，纯历史模式下向量候选为空也可工作）
+        # 3. 合并历史推荐结果
         candidates = self._history.merge_with_candidates(
             cname, ename, candidates, top_k=settings.recall_top_k
+        )
+        history_count = sum(1 for c in candidates if c.get("is_history"))
+        vector_count = len(candidates) - history_count
+        logger.info(
+            f"[历史推荐] 启用: {self._history._enabled}, "
+            f"历史候选数: {history_count}, 向量候选数: {vector_count}, "
+            f"Top1来源: {'历史' if candidates and candidates[0].get('is_history') else '向量'}"
         )
 
         # 提取历史候选中的限定词编码和元素详情，用于后续直接复用
@@ -140,8 +164,14 @@ class MetadataRecommender:
                     "element_code": c.get("element_code", ""),
                 }
 
+        # 4. LLM 重排序
         rankings = rerank_elements(
             cname, ename, decomp.core_element_hint, candidates, settings.rerank_top_k, self.llm
+        )
+        logger.info(
+            f"[LLM重排序] 启用: {settings.llm_rerank_enabled}, "
+            f"输入候选数: {len(candidates)}, 输出结果数: {len(rankings)}, "
+            f"Top3: {[r.get('element_code', '') for r in rankings[:3]]}"
         )
 
         element_cnames, element_enames, element_types = [], [], []
@@ -196,10 +226,15 @@ class MetadataRecommender:
         if extend_label:
             res["extendKey"] = extend_key
 
-        # 限定词推荐：优先使用人工历史选择的限定词，否则走 LLM+向量通道
+        # 5. 限定词推荐
         history_det = self._find_history_determiners(rankings, history_det_map)
         if history_det:
             res["deteminer"] = self._build_history_deteminer(history_det)
+            logger.info(
+                f"[限定词推荐] 来源: 历史, "
+                f"determiner1: {history_det.get('determiner1_code', '')}, "
+                f"determiner2: {history_det.get('determiner2_code', '')}"
+            )
         else:
             det_queries = normalize_det_queries(decomp, deteminer_label)
             if det_queries:
@@ -229,6 +264,19 @@ class MetadataRecommender:
                     "label": det_labels,
                     "score": det_scores,
                 }
+                logger.info(
+                    f"[限定词推荐] 来源: 向量+LLM, "
+                    f"查询词: {det_queries}, "
+                    f"结果数: {len(det_cnames)}"
+                )
+            else:
+                logger.info(f"[限定词推荐] 无限定词查询，跳过")
+
+        logger.info(
+            f"[推荐完成] 数据元Top3: {element_cnames[:3]}, "
+            f"限定词: {deteminers if deteminers else '无'}, "
+            f"数据元编码: {element_codes[:3]}"
+        )
 
         return res
 
