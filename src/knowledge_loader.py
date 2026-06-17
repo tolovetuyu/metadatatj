@@ -69,10 +69,8 @@ def _load_from_db() -> KnowledgeBase:
     table_catalog["3"] = table_catalog["1"]
     table_catalog["4"] = ""
 
-    # 字典字段信息（暂无对应表，使用空DataFrame）
-    dict_fields_info = pd.DataFrame(columns=["tableName", "fieldCode"])
-    dict_api_paths: list = []
-    df_source_dict_infor = pd.DataFrame()
+    # 字典字段信息（从文件加载，因为数据库中没有对应表）
+    dict_fields_info, dict_api_paths, df_source_dict_infor = _load_dict_info_from_file()
 
     return KnowledgeBase(
         element_items=element_items,
@@ -83,6 +81,39 @@ def _load_from_db() -> KnowledgeBase:
         dict_api_paths=dict_api_paths,
         df_source_dict_infor=df_source_dict_infor,
     )
+
+
+def _load_dict_info_from_file() -> tuple[pd.DataFrame, list, pd.DataFrame]:
+    """从文件加载字典字段信息（即使 DATA_SOURCE=db 也需要）。"""
+    import numpy as np
+
+    kb = settings.knowledge_dir
+    dict_file = kb / "dict" / "table_code_f.csv"
+    api_file = kb / "dict" / "df_api.npy"
+
+    # 如果文件不存在，返回空数据
+    if not dict_file.exists():
+        return pd.DataFrame(columns=["tableName", "fieldCode"]), [], pd.DataFrame()
+
+    # 加载字典字段配置
+    df_source_dict_infor = pd.read_csv(dict_file, dtype=str).fillna("")
+    df_source_dict_infor["table_code_f.tbl_name"] = df_source_dict_infor["table_code_f.tbl_name"].map(
+        lambda x: x.upper()
+    )
+    df_source_dict_infor["table_code_f.col_name"] = df_source_dict_infor["table_code_f.col_name"].map(
+        lambda x: x.upper()
+    )
+
+    # 构建字典字段列表（is_code 是字符串 "TRUE" 或 "FALSE"）
+    dict_fields_info = df_source_dict_infor[df_source_dict_infor["table_code_f.is_code"] == "TRUE"][  # noqa: E712
+        ["table_code_f.tbl_name", "table_code_f.col_name"]
+    ].drop_duplicates().copy()
+    dict_fields_info.columns = ["tableName", "fieldCode"]
+
+    # 加载字典映射路径
+    dict_api_paths = list(np.load(api_file, allow_pickle=True)) if api_file.exists() else []
+
+    return dict_fields_info, dict_api_paths, df_source_dict_infor
 
 
 @dataclass
@@ -143,22 +174,8 @@ def _load_from_file() -> KnowledgeBase:
     len_cols = len(table_catalog.columns)
     table_catalog.columns = [str(i) for i in range(len_cols)]
 
-    df_source_dict_infor = pd.read_csv(_knowledge_path("dict/table_code_f.csv"), dtype=str).fillna("")
-    df_source_dict_infor["table_code_f.tbl_name"] = df_source_dict_infor["table_code_f.tbl_name"].map(
-        lambda x: x.upper()
-    )
-    df_source_dict_infor["table_code_f.col_name"] = df_source_dict_infor["table_code_f.col_name"].map(
-        lambda x: x.upper()
-    )
-    dict_fields_info = df_source_dict_infor[df_source_dict_infor["table_code_f.is_code"] == True][  # noqa: E712
-        ["table_code_f.tbl_name", "table_code_f.col_name"]
-    ].drop_duplicates().copy()
-    dict_fields_info.columns = ["tableName", "fieldCode"]
-
-    import numpy as np
-
-    api_path = _knowledge_path("dict/df_api.npy")
-    dict_api_paths = list(np.load(api_path, allow_pickle=True)) if api_path.exists() else []
+    # 字典字段信息（从文件加载）
+    dict_fields_info, dict_api_paths, df_source_dict_infor = _load_dict_info_from_file()
 
     return KnowledgeBase(
         element_items=element_items,
