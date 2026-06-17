@@ -112,6 +112,40 @@ class LLMClient:
             resp = client.post(url, headers=headers, json=payload)
             resp.raise_for_status()
             content = resp.json()["choices"][0]["message"]["content"]
+        
+        # 移除思考过程标签（如 <think>...</think>）
+        content = self._remove_think_tags(content)
+        
+        # 移除多余的空行（保留单个空行）
+        content = self._remove_extra_blank_lines(content)
+        
+        return content
+
+    def _remove_think_tags(self, content: str) -> str:
+        """移除思考过程标签。"""
+        import re
+        
+        # 移除 <think>...</think> 标签及其内容
+        content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+        
+        # 移除 Markdown 格式的思考过程标签
+        content = re.sub(r'```think.*?```', '', content, flags=re.DOTALL)
+        
+        # 移除 "思考过程："开头的段落
+        content = re.sub(r'思考过程：.*?(?=##|\n\n|$)', '', content, flags=re.DOTALL)
+        
+        return content.strip()
+
+    def _remove_extra_blank_lines(self, content: str) -> str:
+        """移除多余的空行（保留单个空行）。"""
+        import re
+        
+        # 将连续的多个空行替换为单个空行
+        content = re.sub(r'\n{3,}', '\n\n', content)
+        
+        # 移除行首和行尾的空行
+        content = content.strip()
+        
         return content
 
 
