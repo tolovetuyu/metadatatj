@@ -37,9 +37,10 @@ class MetadataRecommender:
 
     def _resolve_element_row(self, cn_name: str, meta: dict[str, Any]) -> tuple:
         """构建数据元返回行。"""
+        # 返回 meta 中的 code 字段（数据库的 code 列），而不是中文拼音
         return (
             meta.get("cn_name", cn_name),
-            meta.get("en_name", ""),
+            meta.get("code", ""),
             meta.get("type", "string"),
             int(meta.get("length", 0) or 0),
             meta.get("classify", ""),
@@ -121,10 +122,11 @@ class MetadataRecommender:
             if not code:
                 continue
             row = self._element_by_code.get(code, {})
+            # 使用数据库的 code 字段（如 XM），而不是中文拼音
             candidates.append({
                 "element_code": code,
                 "cn_name": c.get("cn_name") or row.get("cn_name", ""),
-                "en_name": c.get("en_name") or row.get("en_name", ""),
+                "en_name": c.get("code") or row.get("code", ""),
                 "type": c.get("type") or row.get("type", source_type),
                 "length": c.get("length") or row.get("length", length),
                 "classify": c.get("classify") or row.get("classify", ""),
@@ -157,7 +159,7 @@ class MetadataRecommender:
                     }
                 history_detail_map[c["element_code"]] = {
                     "cn_name": c.get("cn_name", ""),
-                    "en_name": c.get("en_name", ""),
+                    "en_name": c.get("code", ""),
                     "type": c.get("type", "string"),
                     "length": c.get("length", 0),
                     "classify": c.get("classify", ""),
@@ -251,11 +253,14 @@ class MetadataRecommender:
                     ]
                     q_rank = rerank_qualifiers(det_q, q_candidates, settings.rerank_top_k, self.llm)
                     names = []
+                    enames = []
                     for r in q_rank:
                         meta = self.store.get_qualifier_by_id(r["identifier"])
-                        names.append(meta["cn_name"] if meta else r["identifier"])
+                        # 获取 code 字段（如 DJDW），而不是 inner_identifier
+                        names.append(meta.get("cn_name", "") if meta else r["identifier"])
+                        enames.append(meta.get("code", "") if meta else r["identifier"])
                     det_cnames.append(names)
-                    det_enames.append([r["identifier"] for r in q_rank])
+                    det_enames.append(enames)
                     det_labels.append([0] * len(q_rank))
                     det_scores.append([r.get("score", 0) for r in q_rank])
                 res["deteminer"] = {
@@ -309,9 +314,11 @@ class MetadataRecommender:
             if not code:
                 continue
             meta = self.store.get_qualifier_by_id(code)
-            cn_name = meta["cn_name"] if meta else code
+            # 获取 code 字段（如 DJDW），而不是 inner_identifier
+            cn_name = meta.get("cn_name", "") if meta else code
+            ename = meta.get("code", "") if meta else code
             det_cnames.append([cn_name])
-            det_enames.append([code])
+            det_enames.append([ename])
         if not det_cnames:
             return {}
         return {

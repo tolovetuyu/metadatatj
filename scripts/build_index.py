@@ -41,11 +41,13 @@ def build_elements(store: ChromaVectorStore, kb) -> None:
     # 优先使用 inner_code 作为 element_code（与旧代码保持一致）
     ids = df.apply(lambda row: row.inner_code if row.inner_code else row.element_code, axis=1).tolist()
     docs = [_element_doc(row) for row in df.itertuples()]
+    # 添加 code 字段（数据库的 code 列，如 XM），用于返回 ename
     metas = [
         {
             "element_code": row.inner_code if row.inner_code else row.element_code,
             "cn_name": row.cn_name,
             "en_name": row.en_name,
+            "code": row.element_code,  # 数据库的 code 列（如 XM）
             "type": row.type,
             "length": int(row.length),
             "classify": row.classify,
@@ -61,7 +63,11 @@ def build_qualifiers(store: ChromaVectorStore, kb) -> None:
     store.reset_collection(COLLECTION_QUALIFIERS)
     ids = df["identifier"].tolist()
     docs = [_qualifier_doc(row) for row in df.itertuples()]
-    metas = [{"identifier": row.identifier, "cn_name": row.cn_name} for row in df.itertuples()]
+    # 添加 code 字段（数据库的 code 列，如 DJDW），用于返回 ename
+    metas = [
+        {"identifier": row.identifier, "cn_name": row.cn_name, "code": row.identifier}
+        for row in df.itertuples()
+    ]
     store.upsert_batch(COLLECTION_QUALIFIERS, ids, docs, metas)
     print(f"  限定词: {len(ids)} 条")
 
@@ -103,7 +109,7 @@ def build_table_fields(store: ChromaVectorStore, kb) -> None:
             continue
         for row in df.itertuples():
             field_cn = getattr(row, "数据项中文名", "")
-            field_en = getattr(row, "数据项标识符", "")
+            field_en = getattr(row, "数据项英文名", "")
             if not field_cn:
                 continue
             doc_id = f"{en}::{field_en or field_cn}"

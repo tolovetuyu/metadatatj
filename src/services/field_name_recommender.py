@@ -48,40 +48,29 @@ class FieldNameRecommender:
 
         system_prompt = """你是一位资深的数据架构师，擅长根据字段英文名或拼音推断其中文含义。
 
-根据提供的字段名称，给出最可能的中文名称。字段名称可能是：
+【强制要求】你必须为输入的每一个字段都生成推荐结果！
+
+字段名称可能是：
 1. 英文，如 user_name, create_time
 2. 拼音，如 yonghu_name, chuangjian_shijian
 3. 拼音首字母缩写，如 yhm, cjsj
 
-【重要】你必须只输出纯 JSON 格式，不要任何额外内容：
-- 不要输出 Markdown 格式（不要 ```json ``` 包裹）
-- 不要输出解释说明
-- 不要输出分析过程
-- 直接输出 JSON 对象
-
-输出 JSON 格式：
+输出格式示例（包含所有字段）：
 {
   "recommendations": [
-    {
-      "field_name": "原始名称",
-      "cn_name": "推荐的中文名",
-      "confidence": "高/中/低",
-      "reason": "推荐原因"
-    }
+    {"field_name": "user_name", "cn_name": "用户名", "confidence": "高", "reason": "原因"},
+    {"field_name": "user_age", "cn_name": "用户年龄", "confidence": "高", "reason": "原因"},
+    {"field_name": "create_time", "cn_name": "创建时间", "confidence": "高", "reason": "原因"}
   ]
 }
 
-可信度规则：
-- 高：常见的标准字段名，如 id, name, code, type, yhm(用户), cjsj(创建时间)等
-- 中：组合词或常见缩写，如 user_name, yonghu_ming等
-- 低：不常见或需要更多上下文才能确定的字段"""
+必须包含全部输入字段！"""
 
-        user_prompt = """请为以下 {} 个字段逐个推荐中文名（可能是英文、拼音或拼音首字母缩写）：
+        user_prompt = """请为以下 {} 个字段逐个推荐中文名：
 
 {}
 
-【重要】必须为每一个字段都给出推荐结果，不能遗漏任何一个。
-输出 JSON 格式的数组，包含所有 {} 个字段的推荐结果。""".format(len(field_names), fields_str, len(field_names))
+【强制要求】输出包含 "recommendations" 键的 JSON 对象，数组中必须包含全部 {} 个字段！""".format(len(field_names), fields_str, len(field_names))
 
         try:
             result = self._client.chat_json(
@@ -89,6 +78,12 @@ class FieldNameRecommender:
                 user=user_prompt
             )
             logger.info("字段名称推荐完成，共 {} 个字段".format(len(field_names)))
+            
+            # 检查返回结果
+            if isinstance(result, dict) and "recommendations" in result:
+                recs = result["recommendations"]
+                if len(recs) < len(field_names):
+                    logger.warning("LLM 返回字段数不足: 期望 {} 个，实际 {} 个".format(len(field_names), len(recs)))
             return result
         except Exception as e:
             logger.error("字段名称推荐失败: {}".format(e))

@@ -34,9 +34,9 @@ class Settings:
     ).resolve()
 
     recommend_host: str = os.getenv("RECOMMEND_HOST", "0.0.0.0")
-    recommend_port: int = _int("RECOMMEND_PORT", 6058)
+    recommend_port: int = _int("RECOMMEND_PORT", 7058)
     tablemap_host: str = os.getenv("TABLEMAP_HOST", "0.0.0.0")
-    tablemap_port: int = _int("TABLEMAP_PORT", 6061)
+    tablemap_port: int = _int("TABLEMAP_PORT", 7061)  # 映射到 7061
 
     llm_api_base: str = os.getenv("LLM_API_BASE", "https://api.openai.com/v1").rstrip("/")
     llm_api_key: str = os.getenv("LLM_API_KEY", "")
@@ -60,7 +60,7 @@ class Settings:
     llm_rerank_enabled: bool = _bool("LLM_RERANK_ENABLED", True)
 
     admin_host: str = os.getenv("ADMIN_HOST", "0.0.0.0")
-    admin_port: int = _int("ADMIN_PORT", 6070)
+    admin_port: int = _int("ADMIN_PORT", 7070)
     admin_secret_key: str = os.getenv("ADMIN_SECRET_KEY", "metadata-tj-admin-dev")
     upload_dir: Path = Path(os.getenv("UPLOAD_DIR", str(_ROOT / "data" / "uploads"))).resolve()
 

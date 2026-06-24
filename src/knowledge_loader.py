@@ -58,7 +58,7 @@ def _load_from_db() -> KnowledgeBase:
         "SELECT DISTINCT t.CODE, t.chname, t.enname FROM rucp_standard_dataset t "
         "INNER JOIN rucp_standard_class t2 ON t.standardclass = t2.id "
         "INNER JOIN rucp_setting_base t3 ON t3.type = t2.code AND t3.isuse = 1 "
-        "WHERE t.STATUS = 1"
+        "WHERE t.STATUS = '1'"
     )
     if rows:
         table_catalog = pd.DataFrame(rows)
@@ -149,7 +149,7 @@ def _load_from_file() -> KnowledgeBase:
     element_items = elements[
         ["中文名称\n(*必填项)", "标识符\n(*必填项)", "类型", "长度", "要素分类编码", "内部标识符\n(*必填项)"]
     ].copy()
-    element_items.columns = ["cn_name", "en_name", "type", "length", "classify", "element_code"]
+    element_items.columns = ["cn_name", "inner_code", "type", "length", "classify", "en_name"]
     element_items["length"] = element_items["length"].map(
         lambda x: int(str(x).split(",")[0]) if str(x).strip() else 0
     )
@@ -201,7 +201,7 @@ def _load_table_fields_from_db(table_ename: str) -> pd.DataFrame:
 
     # 先获取表ID
     row = db.query_one(
-        "SELECT id FROM rucp_standard_dataset WHERE enname = %s AND status = 1",
+        "SELECT id FROM rucp_standard_dataset WHERE enname = %s AND status = '1'",
         (table_ename,)
     )
     if not row:
@@ -209,20 +209,20 @@ def _load_table_fields_from_db(table_ename: str) -> pd.DataFrame:
 
     dataset_id = row["id"]
     rows = db.query_all(
-        "SELECT DISTINCT seq, chname, enname, description, determiner_ename, determiner_code, determiner_cname, "
+        "SELECT DISTINCT seq, chname, enname, description, determiner1, determiner2, "
         "bzeleid, elementid, bzele_cname, type, length, codeset, isrequire, default_value, "
         "ismultivalue, isindex, isunique, dataclass, safelevel, '', remark1, '' "
-        "FROM rucp_standard_dataset_ele WHERE datasetid = %s AND isinvalid = 0 ORDER BY seq",
+        "FROM rucp_standard_dataset_ele WHERE datasetid = %s ORDER BY seq",
         (dataset_id,)
     )
     df_target = pd.DataFrame(rows)
     if df_target.empty:
         return df_target
     s_columns = [
-        "序号", "数据项中文名", "数据项标识符", "数据项描述", "限定词内部标识符",
-        "限定词标识符", "限定词", "数据元内部标识符", "数据元标识符", "数据元中文名",
+        "序号", "数据项中文名", "数据项英文名", "数据项描述", "限定词标识符1",
+        "限定词标识符2", "数据元内部标识符", "数据项英文名", "数据元中文名",
         "数据类型", "数据长度", "引用代码集", "是否必填", "默认值", "是否多值",
-        "是否查询", "是否唯一", "字段分类", "字段敏感度分类", "归并维度", "备注", "主记录ID生成",
+        "是否查询", "是否唯一", "分类", "分级", "归并维度", "备注", "主记录ID生成",
     ]
     df_target.columns = s_columns[: len(df_target.columns)]
     return df_target
@@ -237,7 +237,7 @@ def _load_table_fields_from_file(table_ename: str) -> pd.DataFrame:
         "序号", "数据项中文名", "数据项标识符", "数据项描述", "限定词内部标识符",
         "限定词标识符", "限定词", "数据元内部标识符", "数据元标识符", "数据元中文名",
         "数据类型", "数据长度", "引用代码集", "是否必填", "默认值", "是否多值",
-        "是否查询", "是否唯一", "字段分类", "字段敏感度分类", "归并维度", "备注", "主记录ID生成",
+        "是否查询", "是否唯一", "分类", "分级", "归并维度", "备注", "主记录ID生成",
     ]
     df_target.columns = s_columns[:10] + list(df_target.columns)[10:]
     return df_target

@@ -5,10 +5,10 @@ from __future__ import annotations
 
 def _run_det(*parts: tuple[tuple[str, str], ...]):
     return {
-        "cname": [[p[0]] for p in parts],
-        "ename": [[p[1]] for p in parts],
-        "label": [[0] for _ in parts],
-        "score": [[1.0] for _ in parts],
+        "cname": [p[0] for p in parts],
+        "ename": [p[1] for p in parts],
+        "label": [0 for _ in parts],
+        "score": [1.0 for _ in parts],
     }
 
 
@@ -17,15 +17,15 @@ def _item(cname, ename, typ, length, code, gz, det_parts=None):
     return {
         "deteminer": det,
         "element": {
-            "cname": [cname],
-            "ename": [ename],
-            "type": [typ],
-            "length": [length],
-            "classify": ["9999999"],
-            "elementCode": [code],
-            "score": [1.0],
-            "gz": [gz],
-            "gyh": [""],
+            "cname": cname,
+            "ename": ename,
+            "type": typ,
+            "length": length,
+            "classify": "9999999",
+            "elementCode": code,
+            "score": 1.0,
+            "gz": gz,
+            "gyh": "",
             "mapList": [],
             "deteminer": [],
             "deteminerEname": [],

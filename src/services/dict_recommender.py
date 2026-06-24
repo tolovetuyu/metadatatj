@@ -78,13 +78,16 @@ class DictRecommender:
             match_count = stats["match_count"]
             match_rate = match_count / enum_count
 
-            # 可信度计算
+            # 可信度计算（分值用于百分比）
             if match_count >= 2 and match_rate >= 0.8:
                 confidence = "高"
+                confidence_score = 100
             elif match_count >= 1 and match_rate >= 0.5:
                 confidence = "中"
+                confidence_score = 70
             else:
                 confidence = "低"
+                confidence_score = 40
 
             reason = "匹配了 {} 个枚举值: {}".format(
                 match_count, ", ".join(stats["items"][:3])
@@ -96,6 +99,7 @@ class DictRecommender:
                 "dict_code": stats["dict_code"],
                 "match_count": match_count,
                 "confidence": confidence,
+                "confidence_score": confidence_score,
                 "reason": reason,
             })
 

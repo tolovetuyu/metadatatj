@@ -121,9 +121,19 @@ class TableMapper:
         res["yskCname"] = info[1]
         res["yskEname"] = info[2]
         res["tableMatchScore"] = info[3]
-        df = load_table_fields(info[2])
-        target_names = df["数据项中文名"].tolist()
-        res["recommendInfos"] = self._field_mapping(source_fields, target_names, limit_score)
+        
+        # 尝试加载表字段信息
+        try:
+            df = load_table_fields(info[2])
+            if df.empty or "数据项中文名" not in df.columns:
+                res["recommendInfos"] = {}
+                res["error"] = "表字段信息为空或数据格式异常"
+                return res
+            target_names = df["数据项中文名"].tolist()
+            res["recommendInfos"] = self._field_mapping(source_fields, target_names, limit_score)
+        except Exception as e:
+            res["recommendInfos"] = {}
+            res["error"] = str(e)
         return res
 
     def field_map(self, data: dict) -> dict:
@@ -138,7 +148,17 @@ class TableMapper:
             "yskCname": ysk_cname,
             "yskEname": ysk_ename,
         }
-        df = load_table_fields(ysk_ename)
-        target_names = df["数据项中文名"].tolist()
-        res["recommendInfos"] = self._field_mapping(source_fields, target_names, limit_score)
+        
+        # 尝试加载表字段信息
+        try:
+            df = load_table_fields(ysk_ename)
+            if df.empty or "数据项中文名" not in df.columns:
+                res["recommendInfos"] = {}
+                res["error"] = "表字段信息为空或数据格式异常"
+                return res
+            target_names = df["数据项中文名"].tolist()
+            res["recommendInfos"] = self._field_mapping(source_fields, target_names, limit_score)
+        except Exception as e:
+            res["recommendInfos"] = {}
+            res["error"] = str(e)
         return res

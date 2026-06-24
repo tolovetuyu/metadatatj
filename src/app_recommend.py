@@ -3,6 +3,14 @@
 from __future__ import annotations
 
 import logging
+import threading
+import sys
+from pathlib import Path
+
+# 添加项目根目录到 Python 路径
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from flask import Flask, jsonify, request
 
@@ -81,6 +89,17 @@ def history_stats():
     """获取历史推荐缓存统计信息。"""
     history = get_history_recommender()
     return jsonify(history.get_cache_stats())
+
+
+@app.route("/autoexport/api/history/cache/reload", methods=["POST"])
+def history_cache_reload():
+    """手动刷新历史推荐缓存（修改历史数据库后调用）。"""
+    history = get_history_recommender()
+    count = history.load_cache()
+    return jsonify({
+        "status": "success",
+        "message": f"缓存已刷新，加载 {count} 条记录"
+    })
 
 
 @app.route("/autoexport/api/history/sync", methods=["POST"])
@@ -195,10 +214,9 @@ def dict_recommend():
 
     请求参数:
         enum_values: 枚举值列表，如 ["男", "女"]
-        top_k: 返回前几个推荐（默认 5）
 
     返回:
-        推荐的字典列表，包含匹配数和可信度
+        推荐的字典编码和可信度（只返回匹配度最高的1个）
     """
     try:
         data = request.get_json(force=True)
@@ -206,7 +224,6 @@ def dict_recommend():
         return jsonify({"error": "输入参数异常！"})
 
     enum_values = data.get("enum_values", [])
-    top_k = data.get("top_k", 5)
 
     if not enum_values:
         return jsonify({"error": "enum_values 不能为空！"})
@@ -214,9 +231,10 @@ def dict_recommend():
     try:
         store = ChromaVectorStore()
         recommender = get_dict_recommender(store)
-        result = recommender.recommend(enum_values, top_k)
+        # 只返回匹配度最高的1个
+        result = recommender.recommend(enum_values, top_k=1)
         logger.info(f"字典推荐完成，枚举值: {enum_values}, 推荐数: {len(result)}")
-        return jsonify({"recommendations": result})
+        return jsonify(result[0] if result else {})
     except Exception as e:
         logger.error(f"字典推荐失败: {e}")
         return jsonify({"error": str(e)})
@@ -256,43 +274,56 @@ def vector_index_rebuild():
             return jsonify({"error": f"无效的集合名称: {c}，有效值: {valid_collections}"})
 
     try:
-        logger.info(f"[向量库重建] 开始重建，集合: {collections}")
+        logger.info(f"[向量库重建] 开始异步重建，集合: {collections}")
         
-        # 动态导入，避免循环依赖
-        import subprocess
-        import sys
-        from pathlib import Path
+        # 异步执行重建
+        def rebuild_async():
+            try:
+                # 在函数内部导入，避免模块导入问题
+                from scripts.build_index import build_elements, build_qualifiers, build_tables, build_table_fields, build_dict_items
+                
+                kb = load_knowledge()
+                store = ChromaVectorStore()
+                
+                results = {}
+                
+                if "all" in collections:
+                    collections_list = ["elements", "qualifiers", "tables", "table_fields", "dict_items"]
+                else:
+                    collections_list = collections
+                
+                for c in collections_list:
+                    try:
+                        if c == "elements":
+                            build_elements(store, kb)
+                            results[c] = "success"
+                        elif c == "qualifiers":
+                            build_qualifiers(store, kb)
+                            results[c] = "success"
+                        elif c == "tables":
+                            build_tables(store, kb)
+                            results[c] = "success"
+                        elif c == "table_fields":
+                            build_table_fields(store, kb)
+                            results[c] = "success"
+                        elif c == "dict_items":
+                            build_dict_items(store, kb)
+                            results[c] = "success"
+                    except Exception as e:
+                        logger.error(f"[向量库重建] 集合 {c} 重建失败: {e}")
+                        results[c] = f"failed: {str(e)}"
+                
+                logger.info(f"[向量库重建] 完成，结果: {results}")
+            except Exception as e:
+                logger.error(f"[向量库重建] 异步执行异常: {e}")
         
-        # 获取项目根目录
-        root = Path(__file__).resolve().parent.parent
+        thread = threading.Thread(target=rebuild_async, daemon=True)
+        thread.start()
         
-        # 执行重建脚本
-        result = subprocess.run(
-            [sys.executable, str(root / "scripts" / "build_index.py")],
-            capture_output=True,
-            text=True,
-            cwd=str(root)
-        )
-        
-        if result.returncode != 0:
-            logger.error(f"[向量库重建] 失败: {result.stderr}")
-            return jsonify({
-                "status": "error",
-                "message": "向量库重建失败",
-                "error": result.stderr
-            })
-        
-        logger.info(f"[向量库重建] 完成: {result.stdout}")
-        
-        # 重建完成后重新加载推荐器
-        global _recommender
-        _recommender = None
-        get_recommender()
-        
+        # 立即返回，不等待重建完成
         return jsonify({
-            "status": "success",
-            "message": "向量库重建完成",
-            "output": result.stdout
+            "status": "started",
+            "message": "向量库重建已在后台开始，请稍后查询结果"
         })
         
     except Exception as e:
