@@ -153,7 +153,7 @@ def build_dict_items(store: ChromaVectorStore, kb) -> None:
     for row in rows:
         dict_id = row["id"]
         dict_name = row["name"]
-        dict_code = row["inner_identify"] or row["code"]
+        dict_code = row["code"] or row["inner_identify"]  # 优先使用 code，如果没有才使用内部标识符
         item_name = row["item_name"]
 
         # 生成唯一 ID
