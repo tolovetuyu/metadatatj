@@ -4,11 +4,13 @@ from __future__ import annotations
 
 
 def _run_det(*parts: tuple[tuple[str, str], ...]):
+    # 修正结构：外层数组表示多个限定词组合，内层数组表示每个组合中的限定词
+    # 例如：(("RUN", "RUN"), ("打标原因", "DBYY")) → [["RUN"], ["打标原因"]]
     return {
-        "cname": [[p[0] for p in parts]],
-        "ename": [[p[1] for p in parts]],
-        "label": [[0 for _ in parts]],
-        "score": [[1.0 for _ in parts]],
+        "cname": [[p[0]] for p in parts],  # 每个限定词组合单独放在一个内层数组中
+        "ename": [[p[1]] for p in parts],
+        "label": [[0] for _ in parts],
+        "score": [[1.0] for _ in parts],
     }
 
 
@@ -17,15 +19,15 @@ def _item(cname, ename, typ, length, code, gz, det_parts=None):
     return {
         "deteminer": det,
         "element": {
-            "cname": cname,
-            "ename": ename,
-            "type": typ,
-            "length": length,
-            "classify": "9999999",
-            "elementCode": code,
-            "score": 1.0,
-            "gz": gz,
-            "gyh": "",
+            "cname": [cname],           # 数组，与 quickexport 保持一致
+            "ename": [ename],           # 数组
+            "type": [typ],              # 数组
+            "length": [length],         # 数组
+            "classify": ["9999999"],    # 数组
+            "elementCode": [code],      # 数组
+            "score": [1.0],             # 数组
+            "gz": [gz],                 # 数组
+            "gyh": [""],                # 数组
             "mapList": [],
             "deteminer": [],
             "deteminerEname": [],
