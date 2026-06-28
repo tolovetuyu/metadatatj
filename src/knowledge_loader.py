@@ -149,7 +149,10 @@ def _load_from_file() -> KnowledgeBase:
     element_items = elements[
         ["中文名称\n(*必填项)", "标识符\n(*必填项)", "类型", "长度", "要素分类编码", "内部标识符\n(*必填项)"]
     ].copy()
-    element_items.columns = ["cn_name", "inner_code", "type", "length", "classify", "en_name"]
+    # 修正列名映射，与数据库加载保持一致
+    element_items.columns = ["cn_name", "element_code", "type", "length", "classify", "inner_code"]
+    # 添加 en_name 字段（拼音），用于文档生成
+    element_items["en_name"] = ""
     element_items["length"] = element_items["length"].map(
         lambda x: int(str(x).split(",")[0]) if str(x).strip() else 0
     )
