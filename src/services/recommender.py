@@ -187,7 +187,8 @@ class MetadataRecommender:
             if not meta.get("cn_name") and code in history_detail_map:
                 detail = history_detail_map[code]
                 element_cnames.append(detail["cn_name"])
-                element_enames.append(detail["en_name"])
+                # 从向量库获取 code 字段，而不是历史数据库中的 target_en_name（可能是拼音）
+                element_enames.append(meta.get("code", detail.get("en_name", "")))
                 element_types.append(detail["type"] or source_type)
                 element_lengths.append(detail["length"] or length)
                 element_classifys.append(detail["classify"])
