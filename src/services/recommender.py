@@ -126,7 +126,7 @@ class MetadataRecommender:
             candidates.append({
                 "element_code": code,
                 "cn_name": c.get("cn_name") or row.get("cn_name", ""),
-                "en_name": c.get("code") or row.get("code", ""),
+                "en_name": c.get("code") or row.get("element_code", ""),  # ← 修复：使用 element_code
                 "type": c.get("type") or row.get("type", source_type),
                 "length": c.get("length") or row.get("length", length),
                 "classify": c.get("classify") or row.get("classify", ""),
@@ -159,7 +159,7 @@ class MetadataRecommender:
                     }
                 history_detail_map[c["element_code"]] = {
                     "cn_name": c.get("cn_name", ""),
-                    "en_name": c.get("code", ""),
+                    "en_name": c.get("en_name", ""),  # ← 修复：使用历史候选的 en_name 字段（拼音）
                     "type": c.get("type", "string"),
                     "length": c.get("length", 0),
                     "classify": c.get("classify", ""),
@@ -183,6 +183,8 @@ class MetadataRecommender:
         for rank in rankings:
             code = rank["element_code"]
             meta = self.store.get_element_by_code(code) or {}
+            # 添加诊断日志：输出向量库返回的完整 metadata
+            logger.info(f"[诊断] element_code={code}, meta keys={list(meta.keys())}, meta.code={meta.get('code')}, meta.element_code={meta.get('element_code')}")
             # 优先用 ChromaDB 数据，ChromaDB 无数据时回退到历史候选详情
             if not meta.get("cn_name") and code in history_detail_map:
                 detail = history_detail_map[code]
